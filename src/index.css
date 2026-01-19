@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #f3f4f6;
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
