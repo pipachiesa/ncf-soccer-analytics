@@ -462,18 +462,21 @@ export function useZonePressure(matchId) {
 }
 
 // Timeline data for charts
-export function useTimeline(matchId, interval = 10) {
+export function useTimeline(matchId, interval = 5) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     async function fetchData() {
-      if (!matchId) return
+      if (!matchId) {
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
 
-        // Paginate to get all events
+        // Paginate to get all events - fetch all columns to check for minute/minutes
         let allEvents = []
         let from = 0
         const pageSize = 1000
@@ -482,7 +485,7 @@ export function useTimeline(matchId, interval = 10) {
         while (hasMore) {
           let query = supabase
             .from('events')
-            .select('minute, event_type, outcome')
+            .select('*')
             .range(from, from + pageSize - 1)
 
           if (matchId !== 'all') {
@@ -501,25 +504,50 @@ export function useTimeline(matchId, interval = 10) {
           }
         }
 
-        // Group by intervals
-        const maxMin = Math.max(...allEvents.map(e => e.minute || 0), 90)
+        // Check which minute column exists (minute or minutes)
+        const getMinute = (e) => {
+          if (e.minute !== undefined && e.minute !== null) return e.minute
+          if (e.minutes !== undefined && e.minutes !== null) return e.minutes
+          if (e.time !== undefined && e.time !== null) return e.time
+          return null
+        }
+
+        // Group by intervals (0-90 minutes)
         const timeline = []
 
-        for (let i = 0; i <= maxMin; i += interval) {
-          const chunk = allEvents.filter(e => e.minute >= i && e.minute < i + interval)
-          const passes = chunk.filter(e => ['Pass', 'Long Pass'].includes(e.event_type))
+        for (let i = 0; i <= 90; i += interval) {
+          const chunk = allEvents.filter(e => {
+            const min = getMinute(e)
+            return min !== null && min >= i && min < i + interval
+          })
+          const passes = chunk.filter(e => ['Pass', 'Long Pass', 'Short Pass', 'Through Pass', 'Cross'].includes(e.event_type))
           const successPasses = passes.filter(e => ['Successful', 'Assist', 'Key Pass', 'Progressive Pass'].includes(e.outcome))
           const duels = chunk.filter(e => e.event_type?.includes('Duel'))
+          const shots = chunk.filter(e => e.event_type === 'Shot')
+          const recoveries = chunk.filter(e => ['Recovery', 'Interception'].includes(e.event_type))
+          const losses = chunk.filter(e =>
+            e.event_type === 'Loss' ||
+            e.event_type === 'Ball Lost' ||
+            e.outcome === 'Lost' ||
+            (e.event_type === 'Pass' && e.outcome === 'Unsuccessful')
+          )
+
+          // Calculate xG for this interval
+          const xg = shots.reduce((sum, e) => sum + (parseFloat(e.xg) || 0), 0)
 
           timeline.push({
-            minute: `${i}-${i + interval}'`,
+            minute: i,
+            minuteLabel: `${i}`,
             events: chunk.length,
             passes: passes.length,
+            passesSuccessful: successPasses.length,
             passAccuracy: passes.length > 0 ? Math.round((successPasses.length / passes.length) * 100) : 0,
             duels: duels.length,
             duelsWon: duels.filter(e => e.outcome === 'Won').length,
-            shots: chunk.filter(e => e.event_type === 'Shot').length,
-            recoveries: chunk.filter(e => e.event_type === 'Recovery').length
+            shots: shots.length,
+            xg: Math.round(xg * 100) / 100,
+            recoveries: recoveries.length,
+            losses: losses.length
           })
         }
         setData(timeline)
