@@ -106,11 +106,11 @@ export function usePlayerStats(matchId) {
             const pid = stat.player_id
             if (!aggregated[pid]) {
               // Initialize with first record's static info, zero out metrics
-              aggregated[pid] = { ...stat, shots: 0, goals: 0, xg: 0, assists: 0, passes: 0, pass_success: 0, minutes_played: 0, total_actions: 0 }
+              aggregated[pid] = { ...stat, shots: 0, goals: 0, xG: 0, assists: 0, passes: 0, pass_success: 0, minutes_played: 0, total_actions: 0 }
             }
             aggregated[pid].shots += (stat.shots || 0)
             aggregated[pid].goals += (stat.goals || 0)
-            aggregated[pid].xg += (stat.xg || 0)
+            aggregated[pid].xG += (stat.xG || 0)
             aggregated[pid].assists += (stat.assists || 0)
             aggregated[pid].passes += (stat.passes || 0)
             aggregated[pid].pass_success += (stat.pass_success || 0)
@@ -533,7 +533,7 @@ export function useTimeline(matchId, interval = 5) {
           )
 
           // Calculate xG for this interval
-          const xg = shots.reduce((sum, e) => sum + (parseFloat(e.xg) || 0), 0)
+          const xg = shots.reduce((sum, e) => sum + (parseFloat(e.xG) || 0), 0)
 
           timeline.push({
             minute: i,
@@ -688,7 +688,7 @@ function calculateKPIsFromEvents(events) {
   const shots_on_target = shots.filter(e =>
     ['Goal', 'Saved', 'On Target'].includes(e.outcome)
   ).length
-  const xg_total = shots.reduce((sum, e) => sum + (parseFloat(e.xg) || 0), 0)
+  const xg_total = shots.reduce((sum, e) => sum + (parseFloat(e.xG) || 0), 0)
 
   // Chances created = key passes + assists
   const keyPassEvents = events.filter(e =>
@@ -1170,6 +1170,75 @@ function processEventsToHeatmap(events) {
   })
 
   return Object.values(grid)
+}
+
+// Match lineup for formation display
+export function useMatchLineup(matchId) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!matchId || matchId === 'all') {
+        setData(null)
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+
+        // Step 1: Get lineup entries for this match
+        const { data: lineupData, error: lineupError } = await supabase
+          .from('match_lineups')
+          .select('*')
+          .eq('match_id', matchId)
+
+        if (lineupError) throw lineupError
+        if (!lineupData || lineupData.length === 0) {
+          setData([])
+          setLoading(false)
+          return
+        }
+
+        // Step 2: Get player details for all player_ids in the lineup
+        const playerIds = lineupData.map(item => item.player_id)
+
+        const { data: playersData, error: playersError } = await supabase
+          .from('players')
+          .select('player_id, first_name, last_name, shirt_number')
+          .in('player_id', playerIds)
+
+        if (playersError) throw playersError
+
+        // Create a map for quick player lookup
+        const playerMap = {}
+        ;(playersData || []).forEach(p => {
+          playerMap[p.player_id] = p
+        })
+
+        // Map to the format expected by LineupFormation
+        const mappedLineup = lineupData.map(item => {
+          const player = playerMap[item.player_id]
+          return {
+            position: item.position_id,
+            number: player?.shirt_number || '?',
+            name: player ? `${player.first_name} ${player.last_name}`.trim() : 'Unknown'
+          }
+        })
+
+        setData(mappedLineup)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [matchId])
+
+  return { data, loading, error }
 }
 
 // Return empty stats object

@@ -45,7 +45,7 @@ function KPICard({
   const displayTitle = selectedOption?.label || title
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm card-hover relative">
+    <div className={`bg-white rounded-xl border border-gray-200 p-5 shadow-sm card-hover relative ${isOpen ? 'z-50' : ''}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="relative" ref={dropdownRef}>

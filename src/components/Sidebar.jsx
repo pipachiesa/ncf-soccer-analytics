@@ -3,7 +3,7 @@ import { LayoutDashboard, Users, TrendingUp, FileText } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
-  { to: '#', icon: TrendingUp, label: 'Team Analysis', disabled: true },
+  { to: '/team-analysis', icon: TrendingUp, label: 'Team Analysis' },
   { to: '#', icon: Users, label: 'Player Analysis', disabled: true },
   { to: '#', icon: FileText, label: 'Reports', disabled: true },
 ]

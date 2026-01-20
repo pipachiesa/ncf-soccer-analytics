@@ -2,6 +2,7 @@ import { useState, createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Overview from './pages/Overview'
+import TeamAnalysis from './pages/TeamAnalysis'
 import { useMatches } from './hooks/useFetchData'
 
 // Context for selected match
@@ -33,6 +34,7 @@ function AppContent() {
         <main className="flex-1 ml-64">
           <Routes>
             <Route path="/" element={<Overview />} />
+            <Route path="/team-analysis" element={<TeamAnalysis />} />
           </Routes>
         </main>
       </div>

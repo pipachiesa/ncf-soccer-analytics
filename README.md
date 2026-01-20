@@ -17,7 +17,7 @@
 
 ## Features Still to Implement
 
-- Team Analysis Page (Shot Map)
+- Team Analysis Page
 - Player Analysis Page (Individual stats, radar charts)
 - Reports Page (CSV export)
 
