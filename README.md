@@ -1,17 +1,23 @@
 # Soccer Analytics Dashboard
-## Features Completed 
 
-- **Overview Page** - Main dashboard with KPIs
+## Features Completed
+
+- **Overview Page** - Main dashboard with comprehensive match analytics
 - **Match Selector** - Dropdown to switch between matches
-- **KPI Cards** - Total Shots, Pass Accuracy, Duels Won, Recoveries
-- **Top Performers** - Top 3 players by touches
-- **Performance Chart** - Bar chart with team metrics
-- **Zone Heatmap** - Defensive activity by pitch zone
+- **Match Info Card** - Displays match details (teams, score, date, venue)
+- **KPI Cards with Dropdowns** - Interactive cards with multiple metric options:
+  - Shots (shots, goals, xG, chances created, crosses, shot accuracy, conversion rate)
+  - Passes (attempts, accuracy, progressive, long passes, key passes, assists)
+  - Recoveries (total, losses, ratio, controlled, dangerous losses)
+  - Defensive (duels, aerial duels, tackles, clearances, blocks, fouls)
+- **Timeline Chart** - Performance visualization with dropdown options for xG & Shots, Recoveries, Losses, Duels, Passes
+- **Outcomes Chart** - Bar chart displaying team performance metrics
+- **Activity Heatmap** - Visual representation of activity by pitch zone
 - **Supabase Integration** - Real-time data from database
 
-## Features still to implement
+## Features Still to Implement
 
-- Team Analysis Page (Shot Map, Timeline)
+- Team Analysis Page (Shot Map)
 - Player Analysis Page (Individual stats, radar charts)
 - Reports Page (CSV export)
 
