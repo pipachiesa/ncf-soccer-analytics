@@ -860,6 +860,318 @@ function calculateKPIsFromEvents(events) {
   }
 }
 
+// Outcomes data for bar chart (Pass Outcomes, Shot Outcomes, Event Types, Zones)
+export function useOutcomesData(matchId) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!matchId) {
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+
+        // Fetch all events with pagination
+        let allEvents = []
+        let from = 0
+        const pageSize = 1000
+        let hasMore = true
+
+        while (hasMore) {
+          let query = supabase
+            .from('events')
+            .select('*')
+            .range(from, from + pageSize - 1)
+
+          if (matchId !== 'all') {
+            query = query.eq('match_id', matchId)
+          }
+
+          const { data: pageData, error } = await query.order('id', { ascending: true })
+          if (error) throw error
+
+          if (pageData && pageData.length > 0) {
+            allEvents = [...allEvents, ...pageData]
+            from += pageSize
+            hasMore = pageData.length === pageSize
+          } else {
+            hasMore = false
+          }
+        }
+
+        // Calculate outcomes data
+        const outcomes = calculateOutcomesFromEvents(allEvents)
+        setData(outcomes)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [matchId])
+
+  return { data, loading, error }
+}
+
+// Helper function to calculate outcomes data from events
+function calculateOutcomesFromEvents(events) {
+  if (!events || events.length === 0) {
+    return getEmptyOutcomesData()
+  }
+
+  // ==================== PASS OUTCOMES ====================
+  const passEvents = events.filter(e =>
+    ['Pass', 'Long Pass', 'Short Pass', 'Through Pass', 'Cross'].includes(e.event_type)
+  )
+  const passesSuccessful = passEvents.filter(e =>
+    ['Successful', 'Assist', 'Key Pass', 'Progressive Pass'].includes(e.outcome)
+  ).length
+  const passesUnsuccessful = passEvents.filter(e =>
+    e.outcome === 'Unsuccessful' || e.outcome === 'Lost'
+  ).length
+  const keyPasses = events.filter(e => e.outcome === 'Key Pass').length
+  const progressivePasses = events.filter(e =>
+    e.outcome === 'Progressive Pass' || (e.event_type === 'Pass' && e.progressive === true)
+  ).length
+  const assists = events.filter(e => e.outcome === 'Assist').length
+
+  // ==================== SHOT OUTCOMES ====================
+  const shotEvents = events.filter(e => e.event_type === 'Shot')
+  const goals = shotEvents.filter(e => e.outcome === 'Goal').length
+  const shotsOnTarget = shotEvents.filter(e =>
+    ['Goal', 'Saved', 'On Target'].includes(e.outcome)
+  ).length
+  const shotsBlocked = shotEvents.filter(e => e.outcome === 'Blocked').length
+  const shotsOffTarget = shotEvents.filter(e =>
+    e.outcome === 'Off Target' || e.outcome === 'Wide' || e.outcome === 'Over'
+  ).length
+
+  // ==================== EVENT TYPES ====================
+  const totalPasses = passEvents.length
+  const aerialDuels = events.filter(e =>
+    e.event_type === 'Aerial Duel' || e.event_type === 'Header'
+  ).length
+  const offensiveDuels = events.filter(e =>
+    e.event_type === 'Offensive Duel' || e.event_type === 'Attack Duel'
+  ).length
+  const defensiveDuels = events.filter(e =>
+    e.event_type === 'Defensive Duel' || e.event_type === 'Ground Duel'
+  ).length
+  const longPasses = events.filter(e => e.event_type === 'Long Pass').length
+  const crosses = events.filter(e => e.event_type === 'Cross').length
+  const tackles = events.filter(e => e.event_type === 'Tackle').length
+  const losses = events.filter(e =>
+    e.event_type === 'Loss' ||
+    e.event_type === 'Ball Lost' ||
+    e.outcome === 'Lost' ||
+    (e.event_type === 'Pass' && e.outcome === 'Unsuccessful')
+  ).length
+  const clearances = events.filter(e => e.event_type === 'Clearance').length
+  const totalRecoveries = events.filter(e =>
+    ['Recovery', 'Interception'].includes(e.event_type)
+  ).length
+
+  // ==================== ZONES ====================
+  // Try to determine zone from zone_3x3 or pitch_zone
+  const defensiveThird = events.filter(e =>
+    e.zone_3x3?.startsWith('R1') || e.pitch_zone === 'Defensive Third'
+  ).length
+  const middleThird = events.filter(e =>
+    e.zone_3x3?.startsWith('R2') || e.pitch_zone === 'Middle Third'
+  ).length
+  const attackingThird = events.filter(e =>
+    e.zone_3x3?.startsWith('R3') || e.pitch_zone === 'Attacking Third'
+  ).length
+
+  return {
+    // Pass outcomes
+    passesSuccessful,
+    passesUnsuccessful,
+    keyPasses,
+    progressivePasses,
+    assists,
+    // Shot outcomes
+    goals,
+    shotsOnTarget,
+    shotsBlocked,
+    shotsOffTarget,
+    // Event types
+    totalPasses,
+    aerialDuels,
+    offensiveDuels,
+    defensiveDuels,
+    longPasses,
+    crosses,
+    tackles,
+    losses,
+    clearances,
+    totalRecoveries,
+    // Zones
+    defensiveThird,
+    middleThird,
+    attackingThird
+  }
+}
+
+// Return empty outcomes data object
+function getEmptyOutcomesData() {
+  return {
+    // Pass outcomes
+    passesSuccessful: 0,
+    passesUnsuccessful: 0,
+    keyPasses: 0,
+    progressivePasses: 0,
+    assists: 0,
+    // Shot outcomes
+    goals: 0,
+    shotsOnTarget: 0,
+    shotsBlocked: 0,
+    shotsOffTarget: 0,
+    // Event types
+    totalPasses: 0,
+    aerialDuels: 0,
+    offensiveDuels: 0,
+    defensiveDuels: 0,
+    longPasses: 0,
+    crosses: 0,
+    tackles: 0,
+    losses: 0,
+    clearances: 0,
+    totalRecoveries: 0,
+    // Zones
+    defensiveThird: 0,
+    middleThird: 0,
+    attackingThird: 0
+  }
+}
+
+// Heatmap data for activity visualization
+export function useHeatmapData(matchId, eventTypes = []) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  // Convert array to string for stable dependency
+  const eventTypesKey = eventTypes.join(',')
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!matchId) {
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Fetch all events first, then filter in JS to avoid complex query issues
+        let allEvents = []
+        let from = 0
+        const pageSize = 1000
+        let hasMore = true
+
+        while (hasMore) {
+          let query = supabase
+            .from('events')
+            .select('*')
+            .range(from, from + pageSize - 1)
+
+          if (matchId !== 'all') {
+            query = query.eq('match_id', matchId)
+          }
+
+          const { data: pageData, error: queryError } = await query.order('id', { ascending: true })
+          if (queryError) throw queryError
+
+          if (pageData && pageData.length > 0) {
+            allEvents = [...allEvents, ...pageData]
+            from += pageSize
+            hasMore = pageData.length === pageSize
+          } else {
+            hasMore = false
+          }
+        }
+
+        // Filter events by type in JavaScript
+        const typesToFilter = eventTypesKey.split(',').filter(t => t)
+        let filteredEvents = allEvents
+
+        if (typesToFilter.length > 0) {
+          filteredEvents = allEvents.filter(e => {
+            // Check event type match
+            if (typesToFilter.includes(e.event_type)) return true
+
+            // For Loss heatmap, also include events with Lost/Unsuccessful outcome
+            if (typesToFilter.includes('Loss') || typesToFilter.includes('Ball Lost')) {
+              if (e.outcome === 'Lost' || e.outcome === 'Unsuccessful') return true
+            }
+
+            return false
+          })
+        }
+
+        // Process events into heatmap points
+        const heatmapPoints = processEventsToHeatmap(filteredEvents)
+        setData(heatmapPoints)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [matchId, eventTypesKey])
+
+  return { data, loading, error }
+}
+
+// Process events into heatmap coordinate points
+function processEventsToHeatmap(events) {
+  if (!events || events.length === 0) return []
+
+  // Group events by grid cells (10x10 grid)
+  const gridSize = 10
+  const grid = {}
+
+  events.forEach(event => {
+    // Try different coordinate field names
+    let x = event.x ?? event.start_x ?? event.location_x
+    let y = event.y ?? event.start_y ?? event.location_y
+
+    // Skip if no valid coordinates
+    if (x === null || x === undefined || y === null || y === undefined) return
+
+    // Normalize coordinates to 0-100 range if needed
+    if (x > 100) x = (x / 120) * 100 // Some data uses 0-120 for pitch length
+    if (y > 100) y = (y / 80) * 100  // Some data uses 0-80 for pitch width
+
+    // Clamp values
+    x = Math.max(0, Math.min(100, x))
+    y = Math.max(0, Math.min(100, y))
+
+    // Calculate grid cell
+    const gridX = Math.floor(x / gridSize)
+    const gridY = Math.floor(y / gridSize)
+    const key = `${gridX}-${gridY}`
+
+    if (!grid[key]) {
+      grid[key] = {
+        x: gridX * gridSize + gridSize / 2,
+        y: gridY * gridSize + gridSize / 2,
+        count: 0
+      }
+    }
+    grid[key].count++
+  })
+
+  return Object.values(grid)
+}
+
 // Return empty stats object
 function getEmptyKPIStats() {
   return {

@@ -5,9 +5,9 @@ import { useMatch } from '../App'
 import MatchSelector from '../components/MatchSelector'
 import GameInfoCard from '../components/GameInfoCard'
 import KPICard from '../components/KPICard'
-import TopPerformers from '../components/TopPerformers'
+import OutcomesChart from '../components/OutcomesChart'
 import PerformanceChart from '../components/PerformanceChart'
-import ZoneHeatmap from '../components/ZoneHeatmap'
+import ActivityHeatmap from '../components/ActivityHeatmap'
 
 // KPI Options configurations
 const SHOTS_OPTIONS = [
@@ -156,23 +156,16 @@ function Overview() {
         />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <PerformanceChart />
-        <TopPerformers />
-      </div>
-
-      {/* Heatmap */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ZoneHeatmap
-          title="Defensive Activity Zones"
-          subtitle="Tackles, recoveries & interceptions by area"
-        />
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex items-center justify-center">
-          <div className="text-center text-gray-400">
-            <p className="text-lg font-medium"></p>
-            <p className="text-sm"></p>
-          </div>
+      {/* Charts Row - Left: xG & Shots + Pass Outcomes stacked (smaller), Right: Heatmap (wider) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+        {/* Left column - two stacked charts (2/5 width) */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          <PerformanceChart />
+          <OutcomesChart />
+        </div>
+        {/* Right column - tall heatmap (3/5 width) */}
+        <div className="lg:col-span-3 h-full">
+          <ActivityHeatmap />
         </div>
       </div>
     </div>
