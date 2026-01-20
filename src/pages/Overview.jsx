@@ -95,7 +95,7 @@ function Overview() {
       {/* Page Header with Match Selector */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Team Overview</h1>
+          <h1 className="text-2xl font-bold text-gray-900">??</h1>
           <p className="text-gray-500">Season performance summary</p>
         </div>
         <div className="w-72">
