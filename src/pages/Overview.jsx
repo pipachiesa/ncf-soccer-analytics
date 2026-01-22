@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Per90Toggle from '../components/Per90Toggle'
+import BigNumber from 'bignumber.js'
 import { Target, TrendingUp, Activity, Shield } from 'lucide-react'
 import { useKPIStats } from '../hooks/useFetchData'
 import { useMatch } from '../App'
@@ -11,54 +13,100 @@ import ActivityHeatmap from '../components/ActivityHeatmap'
 
 // KPI Options configurations
 const SHOTS_OPTIONS = [
-  { key: 'shots', label: 'Shots', field: 'total_shots', subtitle: (s) => `${s?.shots_on_target || 0} on target` },
-  { key: 'goals', label: 'Goals', field: 'goals', subtitle: (s) => `${s?.xg_total?.toFixed(2) || 0} xG` },
-  { key: 'xg', label: 'Expected Goals (xG)', field: 'xg_total', format: (v) => v?.toFixed(2) || '0.00', subtitle: (s) => `${s?.goals || 0} actual goals` },
-  { key: 'chances', label: 'Chances Created', field: 'chances_created', subtitle: (s) => `${s?.key_passes || 0} key passes` },
-  { key: 'crosses', label: 'Crosses', field: 'crosses', subtitle: (s) => `${s?.crosses_successful || 0} successful` },
-  { key: 'shot_accuracy', label: 'Shot Accuracy', field: 'shot_accuracy', format: (v) => `${v || 0}%`, subtitle: (s) => `${s?.shots_on_target || 0}/${s?.total_shots || 0}` },
-  { key: 'conversion', label: 'Conversion Rate', field: 'conversion_rate', format: (v) => `${v || 0}%`, subtitle: (s) => `${s?.goals || 0} goals from ${s?.total_shots || 0} shots` },
+  { key: 'shots', label: 'Shots', field: 'total_shots', subtitle: (s) => `${new BigNumber(s?.shots_on_target || 0).dp(1).toNumber()} on target` },
+  { key: 'goals', label: 'Goals', field: 'goals', subtitle: (s) => `${new BigNumber(s?.xg_total || 0).dp(1).toNumber()} xG` },
+  { key: 'xg', label: 'Expected Goals (xG)', field: 'xg_total', format: (v) => new BigNumber(v || 0).dp(2).toNumber(), subtitle: (s) => `${new BigNumber(s?.goals || 0).dp(1).toNumber()} actual goals` },
+  { key: 'chances', label: 'Chances Created', field: 'chances_created', subtitle: (s) => `${new BigNumber(s?.key_passes || 0).dp(1).toNumber()} key passes` },
+  { key: 'crosses', label: 'Crosses', field: 'crosses', subtitle: (s) => `${new BigNumber(s?.crosses_successful || 0).dp(1).toNumber()} successful` },
+  { key: 'shot_accuracy', label: 'Shot Accuracy', field: 'shot_accuracy', format: (v) => `${new BigNumber(v || 0).dp(1).toNumber()}%`, subtitle: (s) => `${new BigNumber(s?.shots_on_target || 0).dp(1).toNumber()}/${new BigNumber(s?.total_shots || 0).dp(1).toNumber()}` },
+  { key: 'conversion', label: 'Conversion Rate', field: 'conversion_rate', format: (v) => `${new BigNumber(v || 0).dp(1).toNumber()}%`, subtitle: (s) => `${new BigNumber(s?.goals || 0).dp(1).toNumber()} goals from ${new BigNumber(s?.total_shots || 0).dp(1).toNumber()} shots` },
 ]
 
 const PASSES_OPTIONS = [
-  { key: 'passes', label: 'Passes Attempted', field: 'total_passes', subtitle: (s) => `${s?.pass_accuracy || 0}% acc.` },
-  { key: 'pass_accuracy', label: 'Pass Accuracy', field: 'pass_accuracy', format: (v) => `${v || 0}%`, subtitle: (s) => `${s?.passes_successful || 0}/${s?.total_passes || 0}` },
+  { key: 'passes', label: 'Passes Attempted', field: 'total_passes', subtitle: (s) => `${new BigNumber(s?.pass_accuracy || 0).dp(1).toNumber()}% acc.` },
+  { key: 'pass_accuracy', label: 'Pass Accuracy', field: 'pass_accuracy', format: (v) => `${new BigNumber(v || 0).dp(1).toNumber()}%`, subtitle: (s) => `${new BigNumber(s?.passes_successful || 0).dp(1).toNumber()}/${new BigNumber(s?.total_passes || 0).dp(1).toNumber()}` },
   { key: 'progressive', label: 'Progressive Passes', field: 'progressive_passes', subtitle: () => 'forward progression' },
-  { key: 'long_passes', label: 'Long Passes', field: 'long_passes', subtitle: (s) => `${s?.long_passes_successful || 0} successful` },
-  { key: 'long_pass_acc', label: 'Long Pass Acc.', field: 'long_pass_accuracy', format: (v) => `${v || 0}%`, subtitle: (s) => `${s?.long_passes_successful || 0}/${s?.long_passes || 0}` },
+  { key: 'long_passes', label: 'Long Passes', field: 'long_passes', subtitle: (s) => `${new BigNumber(s?.long_passes_successful || 0).dp(1).toNumber()} successful` },
+  { key: 'long_pass_acc', label: 'Long Pass Acc.', field: 'long_pass_accuracy', format: (v) => `${new BigNumber(v || 0).dp(1).toNumber()}%`, subtitle: (s) => `${new BigNumber(s?.long_passes_successful || 0).dp(1).toNumber()}/${new BigNumber(s?.long_passes || 0).dp(1).toNumber()}` },
   { key: 'key_passes', label: 'Key Passes', field: 'key_passes', subtitle: () => 'leading to shots' },
-  { key: 'assists', label: 'Assists', field: 'assists', subtitle: (s) => `${s?.key_passes || 0} key passes` },
+  { key: 'assists', label: 'Assists', field: 'assists', subtitle: (s) => `${new BigNumber(s?.key_passes || 0).dp(1).toNumber()} key passes` },
 ]
 
 const RECOVERIES_OPTIONS = [
-  { key: 'recoveries', label: 'Recoveries', field: 'total_recoveries', subtitle: (s) => `${s?.controlled_recoveries || 0} controlled` },
-  { key: 'losses', label: 'Losses', field: 'losses', subtitle: (s) => `${s?.dangerous_losses || 0} dangerous` },
-  { key: 'ratio', label: 'Recovery/Loss Ratio', field: 'recovery_loss_ratio', format: (v) => v?.toFixed(2) || '0.00', subtitle: (s) => `${s?.total_recoveries || 0} rec / ${s?.losses || 0} loss` },
+  { key: 'recoveries', label: 'Recoveries', field: 'total_recoveries', subtitle: (s) => `${new BigNumber(s?.controlled_recoveries || 0).dp(1).toNumber()} controlled` },
+  { key: 'losses', label: 'Losses', field: 'losses', subtitle: (s) => `${new BigNumber(s?.dangerous_losses || 0).dp(1).toNumber()} dangerous` },
+  { key: 'ratio', label: 'Recovery/Loss Ratio', field: 'recovery_loss_ratio', format: (v) => new BigNumber(v || 0).dp(2).toNumber(), subtitle: (s) => `${new BigNumber(s?.total_recoveries || 0).dp(1).toNumber()} rec / ${new BigNumber(s?.losses || 0).dp(1).toNumber()} loss` },
   { key: 'controlled', label: 'Controlled Recoveries', field: 'controlled_recoveries', subtitle: () => 'maintained possession' },
   { key: 'dangerous_losses', label: 'Dangerous Losses', field: 'dangerous_losses', subtitle: () => 'in own half' },
 ]
 
 const DEFENSIVE_OPTIONS = [
-  { key: 'def_duels', label: 'Defensive Duels', field: 'defensive_duels', subtitle: (s) => `${s?.defensive_duel_success || 0}% won` },
-  { key: 'def_duel_success', label: 'Def. Duel Success', field: 'defensive_duel_success', format: (v) => `${v || 0}%`, subtitle: (s) => `${s?.defensive_duels_won || 0}/${s?.defensive_duels || 0}` },
-  { key: 'aerial', label: 'Aerial Duels', field: 'aerial_duels', subtitle: (s) => `${s?.aerial_duels_won || 0} won` },
-  { key: 'aerial_rate', label: 'Aerial Win Rate', field: 'aerial_win_rate', format: (v) => `${v || 0}%`, subtitle: (s) => `${s?.aerial_duels_won || 0}/${s?.aerial_duels || 0}` },
-  { key: 'tackles', label: 'Tackles', field: 'tackles', subtitle: (s) => `${s?.tackle_success || 0}% success` },
-  { key: 'tackle_success', label: 'Tackle Success', field: 'tackle_success', format: (v) => `${v || 0}%`, subtitle: (s) => `${s?.tackles_won || 0}/${s?.tackles || 0}` },
+  { key: 'def_duels', label: 'Defensive Duels', field: 'defensive_duels', subtitle: (s) => `${new BigNumber(s?.defensive_duel_success || 0).dp(1).toNumber()}% won` },
+  { key: 'def_duel_success', label: 'Def. Duel Success', field: 'defensive_duel_success', format: (v) => `${new BigNumber(v || 0).dp(1).toNumber()}%`, subtitle: (s) => `${new BigNumber(s?.defensive_duels_won || 0).dp(1).toNumber()}/${new BigNumber(s?.defensive_duels || 0).dp(1).toNumber()}` },
+  { key: 'aerial', label: 'Aerial Duels', field: 'aerial_duels', subtitle: (s) => `${new BigNumber(s?.aerial_duels_won || 0).dp(1).toNumber()} won` },
+  { key: 'aerial_rate', label: 'Aerial Win Rate', field: 'aerial_win_rate', format: (v) => `${new BigNumber(v || 0).dp(1).toNumber()}%`, subtitle: (s) => `${new BigNumber(s?.aerial_duels_won || 0).dp(1).toNumber()}/${new BigNumber(s?.aerial_duels || 0).dp(1).toNumber()}` },
+  { key: 'tackles', label: 'Tackles', field: 'tackles', subtitle: (s) => `${new BigNumber(s?.tackle_success || 0).dp(1).toNumber()}% success` },
+  { key: 'tackle_success', label: 'Tackle Success', field: 'tackle_success', format: (v) => `${new BigNumber(v || 0).dp(1).toNumber()}%`, subtitle: (s) => `${new BigNumber(s?.tackles_won || 0).dp(1).toNumber()}/${new BigNumber(s?.tackles || 0).dp(1).toNumber()}` },
   { key: 'clearances', label: 'Clearances', field: 'clearances', subtitle: () => 'defensive clearances' },
   { key: 'blocks', label: 'Blocks', field: 'blocks', subtitle: () => 'shots/passes blocked' },
   { key: 'fouls', label: 'Fouls Committed', field: 'fouls_committed', subtitle: () => 'team fouls' },
 ]
 
 function Overview() {
-  const { selectedMatch, matchesLoading, selectedMatchId } = useMatch()
+  const { selectedMatch, matchesLoading, selectedMatchId, matches } = useMatch()
   const { data: teamStats, loading, error } = useKPIStats(selectedMatchId)
+
+  // State for display mode
+  const [isPer90, setIsPer90] = useState(false)
+  const isAllGames = selectedMatchId === 'all' || !selectedMatchId
+
+  // Reset per90 when switching off all games
+  useEffect(() => {
+    if (!isAllGames) {
+      setIsPer90(false)
+    }
+  }, [isAllGames])
 
   // State for selected KPI options
   const [shotsOption, setShotsOption] = useState(SHOTS_OPTIONS[0])
   const [passesOption, setPassesOption] = useState(PASSES_OPTIONS[0])
   const [recoveriesOption, setRecoveriesOption] = useState(RECOVERIES_OPTIONS[0])
   const [defensiveOption, setDefensiveOption] = useState(DEFENSIVE_OPTIONS[0])
+
+  // Calculate stats based on mode
+  const getDisplayStats = () => {
+    if (!teamStats) return null
+    if (!isPer90 || !isAllGames) return teamStats
+
+    const matchCount = matches?.length || 1
+    if (matchCount === 0) return teamStats
+
+    // Create a copy to modify
+    const per90Stats = { ...teamStats }
+
+    // List of fields to divide by match count (count stats)
+    // Rate fields (accuracy, conversion) should NOT be divided
+    const countFields = [
+      'total_shots', 'goals', 'shots_on_target', 'xg_total', 'chances_created',
+      'crosses', 'crosses_successful',
+      'total_passes', 'passes_successful', 'progressive_passes',
+      'long_passes', 'long_passes_successful', 'key_passes', 'assists',
+      'total_recoveries', 'controlled_recoveries', 'losses', 'dangerous_losses',
+      'defensive_duels', 'defensive_duels_won', 'aerial_duels', 'aerial_duels_won',
+      'tackles', 'tackles_won', 'clearances', 'blocks', 'fouls_committed'
+    ]
+
+    countFields.forEach(field => {
+      if (per90Stats[field] !== undefined) {
+        per90Stats[field] = new BigNumber(per90Stats[field]).dividedBy(matchCount).dp(1).toNumber()
+      }
+    })
+
+    return per90Stats
+  }
+
+  const displayStats = getDisplayStats()
+  const matchCount = matches?.length || 0
 
   // Helper to get value from stats based on option
   const getValue = (stats, option) => {
@@ -67,12 +115,23 @@ function Overview() {
     if (option.format) {
       return option.format(rawValue)
     }
+    // Format floats nicely if they have decimals
+    if (typeof rawValue === 'number' && !Number.isInteger(rawValue) && rawValue !== 0) {
+      return new BigNumber(rawValue).dp(1).toNumber()
+    }
     return rawValue || 0
   }
 
   // Helper to get subtitle from stats based on option
   const getSubtitle = (stats, option) => {
     if (!stats) return ''
+
+    // If Per 90 mode is active, we might want to adjust subtitles too?
+    // For now, let's keep them as is (ratios/percentages are fine).
+    // But absolute counts in subtitles (e.g. "50 successful") might be misleading if we show per90.
+    // However, complexity vs value: let's leave it for now, 
+    // or we could apply the same division to the stats object passed to subtitle function.
+
     if (typeof option.subtitle === 'function') {
       return option.subtitle(stats)
     }
@@ -91,29 +150,45 @@ function Overview() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 max-w-[1600px] mx-auto">
       {/* Page Header with Match Selector */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">??</h1>
-          <p className="text-gray-500">Season performance summary</p>
+          <h1 className="text-2xl font-bold text-gray-900">Team Overview</h1>
+          <p className="text-gray-500">
+            {isAllGames
+              ? `Season Summary • ${matchCount} Matches`
+              : 'Match Performance Analysis'}
+          </p>
         </div>
-        <div className="w-72">
-          <MatchSelector />
+
+        <div className="flex items-center gap-4">
+          {/* Per 90 Toggle - Only visible in All Games mode */}
+          {isAllGames && (
+            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
+              <Per90Toggle isOn={isPer90} onToggle={() => setIsPer90(!isPer90)} />
+            </div>
+          )}
+
+          <div className="w-56">
+            <MatchSelector />
+          </div>
         </div>
       </div>
 
-      {/* Game Info Card */}
-      <div className="mb-6">
-        <GameInfoCard match={selectedMatch} loading={matchesLoading} />
-      </div>
+      {/* Game Info Card - Only visible when specific match selected */}
+      {!isAllGames && (
+        <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
+          <GameInfoCard match={selectedMatch} loading={matchesLoading} />
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KPICard
           title="Shots"
-          value={getValue(teamStats, shotsOption)}
-          subtitle={getSubtitle(teamStats, shotsOption)}
+          value={getValue(displayStats, shotsOption)}
+          subtitle={getSubtitle(displayStats, shotsOption)}
           icon={Target}
           color="primary"
           loading={loading}
@@ -123,8 +198,8 @@ function Overview() {
         />
         <KPICard
           title="Passes Attempted"
-          value={getValue(teamStats, passesOption)}
-          subtitle={getSubtitle(teamStats, passesOption)}
+          value={getValue(displayStats, passesOption)}
+          subtitle={getSubtitle(displayStats, passesOption)}
           icon={TrendingUp}
           color="green"
           loading={loading}
@@ -134,8 +209,8 @@ function Overview() {
         />
         <KPICard
           title="Recoveries"
-          value={getValue(teamStats, recoveriesOption)}
-          subtitle={getSubtitle(teamStats, recoveriesOption)}
+          value={getValue(displayStats, recoveriesOption)}
+          subtitle={getSubtitle(displayStats, recoveriesOption)}
           icon={Activity}
           color="orange"
           loading={loading}
@@ -145,8 +220,8 @@ function Overview() {
         />
         <KPICard
           title="Defensive Duels"
-          value={getValue(teamStats, defensiveOption)}
-          subtitle={getSubtitle(teamStats, defensiveOption)}
+          value={getValue(displayStats, defensiveOption)}
+          subtitle={getSubtitle(displayStats, defensiveOption)}
           icon={Shield}
           color="purple"
           loading={loading}
@@ -156,15 +231,16 @@ function Overview() {
         />
       </div>
 
-      {/* Charts Row - Left: xG & Shots + Pass Outcomes stacked (smaller), Right: Heatmap (wider) */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
-        {/* Left column - two stacked charts (2/5 width) */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
+      {/* Visualizations Section */}
+      <div className="space-y-6">
+        {/* Charts Row: Side-by-side */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <PerformanceChart />
           <OutcomesChart />
         </div>
-        {/* Right column - tall heatmap (3/5 width) */}
-        <div className="lg:col-span-3 h-full">
+
+        {/* Heatmap Section: Horizontal Pitch */}
+        <div className="animate-in zoom-in-95 duration-500">
           <ActivityHeatmap />
         </div>
       </div>

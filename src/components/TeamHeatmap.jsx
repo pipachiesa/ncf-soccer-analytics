@@ -121,8 +121,16 @@ function TeamHeatmap() {
 
     // Draw intensity circles (grayscale)
     heatmapData.forEach(point => {
-      const x = (point.x / 100) * width
-      const y = (point.y / 100) * height
+      // NORMALIZATION:
+      // X (%) = X_raw * 1.05 / 100
+      // Y (%) = Y_raw * 0.95 / 100
+
+      const normalizedXPercent = (point.x * 1.05) / 100
+      const normalizedYPercent = (point.y * 0.95) / 100
+
+      const x = normalizedXPercent * width
+      const y = normalizedYPercent * height
+
       const intensity = point.count / maxVal
       const radius = Math.max(40, 60 * intensity + 30) // Larger radius for smoother blending
 
@@ -221,11 +229,10 @@ function TeamHeatmap() {
               <button
                 key={option.key}
                 onClick={() => handleOptionSelect(option)}
-                className={`w-full text-left px-4 py-3 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg transition-colors ${
-                  selectedOption.key === option.key
+                className={`w-full text-left px-4 py-3 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg transition-colors ${selectedOption.key === option.key
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-gray-700'
-                }`}
+                  }`}
               >
                 <div className={`font-medium ${selectedOption.key === option.key ? 'text-blue-600' : 'text-gray-900'}`}>
                   {option.label}
@@ -238,7 +245,8 @@ function TeamHeatmap() {
       </div>
 
       {/* Soccer Field with Heatmap */}
-      <div ref={containerRef} className="relative flex-1 min-h-[420px] rounded-lg overflow-hidden">
+      {/* Maintain 105:68 aspect ratio for the container */}
+      <div ref={containerRef} className="relative flex-1 rounded-lg overflow-hidden border-2 border-green-700" style={{ aspectRatio: '105/68', width: '100%', minHeight: 'auto' }}>
         {/* Field background with stripes */}
         <div className="absolute inset-0">
           {[...Array(12)].map((_, i) => (
@@ -261,45 +269,48 @@ function TeamHeatmap() {
           style={{ mixBlendMode: 'normal' }}
         />
 
-        {/* Field markings */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 66.67" preserveAspectRatio="none">
-          {/* Outer boundary */}
-          <rect x="2" y="2" width="96" height="62.67" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.4" />
+        {/* Field markings (105x68 standard) */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 105 68" preserveAspectRatio="none">
+          {/* Lines Group */}
+          <g fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.5">
+            {/* Outer Boundary */}
+            <rect x="0" y="0" width="105" height="68" />
 
-          {/* Center line */}
-          <line x1="50" y1="2" x2="50" y2="64.67" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
+            {/* Center Line */}
+            <line x1="52.5" y1="0" x2="52.5" y2="68" />
 
-          {/* Center circle */}
-          <circle cx="50" cy="33.33" r="9" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          <circle cx="50" cy="33.33" r="0.8" fill="rgba(255,255,255,0.8)" />
+            {/* Center Circle */}
+            <circle cx="52.5" cy="34" r="9.15" />
+            <circle cx="52.5" cy="34" r="0.4" fill="rgba(255,255,255,0.8)" stroke="none" />
 
-          {/* Left penalty area */}
-          <rect x="2" y="16.67" width="16" height="33.33" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          {/* Left goal area */}
-          <rect x="2" y="24.67" width="6" height="17.33" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          {/* Left penalty spot */}
-          <circle cx="12" cy="33.33" r="0.6" fill="rgba(255,255,255,0.8)" />
-          {/* Left penalty arc */}
-          <path d="M 18 27 A 6 6 0 0 1 18 40" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
+            {/* Left Penalty Area */}
+            <rect x="0" y="13.84" width="16.5" height="40.32" />
+            {/* Left Goal Area */}
+            <rect x="0" y="24.84" width="5.5" height="18.32" />
+            {/* Left Penalty Spot */}
+            <circle cx="11" cy="34" r="0.4" fill="rgba(255,255,255,0.8)" stroke="none" />
+            {/* Left Arc */}
+            <path d="M 16.5 26.68 A 9.15 9.15 0 0 1 16.5 41.32" />
 
-          {/* Right penalty area */}
-          <rect x="82" y="16.67" width="16" height="33.33" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          {/* Right goal area */}
-          <rect x="92" y="24.67" width="6" height="17.33" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          {/* Right penalty spot */}
-          <circle cx="88" cy="33.33" r="0.6" fill="rgba(255,255,255,0.8)" />
-          {/* Right penalty arc */}
-          <path d="M 82 27 A 6 6 0 0 0 82 40" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
+            {/* Right Penalty Area */}
+            <rect x="88.5" y="13.84" width="16.5" height="40.32" />
+            {/* Right Goal Area */}
+            <rect x="99.5" y="24.84" width="5.5" height="18.32" />
+            {/* Right Penalty Spot */}
+            <circle cx="94" cy="34" r="0.4" fill="rgba(255,255,255,0.8)" stroke="none" />
+            {/* Right Arc */}
+            <path d="M 88.5 26.68 A 9.15 9.15 0 0 0 88.5 41.32" />
 
-          {/* Corner arcs */}
-          <path d="M 2 5 A 3 3 0 0 0 5 2" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          <path d="M 95 2 A 3 3 0 0 0 98 5" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          <path d="M 2 61.67 A 3 3 0 0 1 5 64.67" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-          <path d="M 95 64.67 A 3 3 0 0 1 98 61.67" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
+            {/* Corner Arcs */}
+            <path d="M 0 1 A 1 1 0 0 0 1 0" />
+            <path d="M 0 67 A 1 1 0 0 1 1 68" />
+            <path d="M 104 0 A 1 1 0 0 1 105 1" />
+            <path d="M 104 68 A 1 1 0 0 1 105 67" />
 
-          {/* Goals */}
-          <rect x="-1" y="28" width="3" height="10.67" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="0.3" />
-          <rect x="98" y="28" width="3" height="10.67" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="0.3" />
+            {/* Goals */}
+            <rect x="-1" y="30.34" width="2" height="7.32" stroke="white" strokeWidth="0.5" />
+            <rect x="105" y="30.34" width="2" height="7.32" stroke="white" strokeWidth="0.5" />
+          </g>
         </svg>
 
         {/* Attack direction indicator */}

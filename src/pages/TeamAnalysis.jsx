@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BigNumber from 'bignumber.js'
 import { useMatch } from '../App'
 import { useKPIStats } from '../hooks/useFetchData'
 import MatchSelector from '../components/MatchSelector'
@@ -31,7 +32,7 @@ const METRICS_CONFIG = [
     color: 'green',
     expandedDetails: [
       { label: 'Goals', field: 'goals' },
-      { label: 'xG per Shot', field: 'xg_total', format: (v, stats) => stats?.total_shots > 0 ? (v / stats.total_shots).toFixed(2) : '0.00' },
+      { label: 'xG per Shot', field: 'xg_total', format: (v, stats) => stats?.total_shots > 0 ? new BigNumber(v).dividedBy(stats.total_shots).dp(2).toNumber() : '0.00' },
       { label: 'Conversion Rate', field: 'conversion_rate', format: (v) => `${v || 0}%` },
       { label: 'Chances Created', field: 'chances_created' },
     ]
@@ -60,20 +61,20 @@ const METRICS_CONFIG = [
     expandedDetails: [
       { label: 'Controlled Recoveries', field: 'controlled_recoveries' },
       { label: 'Interceptions', field: 'interceptions' },
-      { label: 'Recovery/Loss Ratio', field: 'recovery_loss_ratio', format: (v) => v?.toFixed(2) || '0.00' },
+      { label: 'Recovery/Loss Ratio', field: 'recovery_loss_ratio', format: (v) => new BigNumber(v || 0).dp(2).toNumber() },
     ]
   },
   {
     id: 'xg',
     title: 'Expected Goals',
     primaryField: 'xg_total',
-    primaryFormat: (v) => v?.toFixed(2) || '0.00',
+    primaryFormat: (v) => new BigNumber(v || 0).dp(2).toNumber(),
     secondaryField: 'goals',
     secondaryFormat: (v) => `${v || 0} actual goals`,
     color: 'green',
     expandedDetails: [
       { label: 'Goals Scored', field: 'goals' },
-      { label: 'xG Difference', field: 'xg_total', format: (v, stats) => ((stats?.goals || 0) - (v || 0)).toFixed(2) },
+      { label: 'xG Difference', field: 'xg_total', format: (v, stats) => new BigNumber(stats?.goals || 0).minus(v || 0).dp(2).toNumber() },
       { label: 'Shots', field: 'total_shots' },
       { label: 'Shots on Target', field: 'shots_on_target' },
     ]
@@ -87,7 +88,7 @@ const METRICS_CONFIG = [
     color: 'orange',
     expandedDetails: [
       { label: 'Dangerous Losses', field: 'dangerous_losses' },
-      { label: 'Recovery/Loss Ratio', field: 'recovery_loss_ratio', format: (v) => v?.toFixed(2) || '0.00' },
+      { label: 'Recovery/Loss Ratio', field: 'recovery_loss_ratio', format: (v) => new BigNumber(v || 0).dp(2).toNumber() },
       { label: 'Total Recoveries', field: 'total_recoveries' },
     ]
   },

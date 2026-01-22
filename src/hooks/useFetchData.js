@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import BigNumber from 'bignumber.js'
 
 // Get all matches for dropdown
 export function useMatches() {
@@ -225,15 +226,15 @@ export function useTeamStats(matchId) {
             })
 
             // Recalculate rates
-            agg.pass_accuracy = agg.total_passes > 0 ? Math.round((agg.passes_successful / agg.total_passes) * 1000) / 10 : 0
-            agg.duel_success_rate = agg.duels_total > 0 ? Math.round((agg.duels_won / agg.duels_total) * 1000) / 10 : 0
-            agg.shot_accuracy = agg.total_shots > 0 ? Math.round((agg.shots_on_target / agg.total_shots) * 1000) / 10 : 0
-            agg.conversion_rate = agg.total_shots > 0 ? Math.round((agg.goals / agg.total_shots) * 1000) / 10 : 0
-            agg.long_pass_accuracy = agg.long_passes > 0 ? Math.round((agg.long_passes_successful / agg.long_passes) * 1000) / 10 : 0
-            agg.recovery_loss_ratio = agg.losses > 0 ? Math.round((agg.total_recoveries / agg.losses) * 100) / 100 : agg.total_recoveries
-            agg.defensive_duel_success = agg.defensive_duels > 0 ? Math.round((agg.defensive_duels_won / agg.defensive_duels) * 1000) / 10 : 0
-            agg.aerial_win_rate = agg.aerial_duels > 0 ? Math.round((agg.aerial_duels_won / agg.aerial_duels) * 1000) / 10 : 0
-            agg.tackle_success = agg.tackles > 0 ? Math.round((agg.tackles_won / agg.tackles) * 1000) / 10 : 0
+            agg.pass_accuracy = agg.total_passes > 0 ? new BigNumber(agg.passes_successful).dividedBy(agg.total_passes).multipliedBy(100).dp(1).toNumber() : 0
+            agg.duel_success_rate = agg.duels_total > 0 ? new BigNumber(agg.duels_won).dividedBy(agg.duels_total).multipliedBy(100).dp(1).toNumber() : 0
+            agg.shot_accuracy = agg.total_shots > 0 ? new BigNumber(agg.shots_on_target).dividedBy(agg.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+            agg.conversion_rate = agg.total_shots > 0 ? new BigNumber(agg.goals).dividedBy(agg.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+            agg.long_pass_accuracy = agg.long_passes > 0 ? new BigNumber(agg.long_passes_successful).dividedBy(agg.long_passes).multipliedBy(100).dp(1).toNumber() : 0
+            agg.recovery_loss_ratio = agg.losses > 0 ? new BigNumber(agg.total_recoveries).dividedBy(agg.losses).dp(1).toNumber() : agg.total_recoveries
+            agg.defensive_duel_success = agg.defensive_duels > 0 ? new BigNumber(agg.defensive_duels_won).dividedBy(agg.defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
+            agg.aerial_win_rate = agg.aerial_duels > 0 ? new BigNumber(agg.aerial_duels_won).dividedBy(agg.aerial_duels).multipliedBy(100).dp(1).toNumber() : 0
+            agg.tackle_success = agg.tackles > 0 ? new BigNumber(agg.tackles_won).dividedBy(agg.tackles).multipliedBy(100).dp(1).toNumber() : 0
 
             // Add per90 object? The view logic seems to handle per90 separate, 
             // but Overview.jsx expects raw totals here and calculates per90 itself if needed,
@@ -250,15 +251,15 @@ export function useTeamStats(matchId) {
           // Single match - add calculated rates
           if (result) {
             const enhanced = { ...result }
-            enhanced.pass_accuracy = enhanced.total_passes > 0 ? Math.round((enhanced.passes_successful / enhanced.total_passes) * 1000) / 10 : 0
-            enhanced.duel_success_rate = enhanced.duels_total > 0 ? Math.round((enhanced.duels_won / enhanced.duels_total) * 1000) / 10 : 0
-            enhanced.shot_accuracy = enhanced.total_shots > 0 ? Math.round((enhanced.shots_on_target / enhanced.total_shots) * 1000) / 10 : 0
-            enhanced.conversion_rate = enhanced.total_shots > 0 ? Math.round((enhanced.goals / enhanced.total_shots) * 1000) / 10 : 0
-            enhanced.long_pass_accuracy = enhanced.long_passes > 0 ? Math.round((enhanced.long_passes_successful / enhanced.long_passes) * 1000) / 10 : 0
-            enhanced.recovery_loss_ratio = enhanced.losses > 0 ? Math.round((enhanced.total_recoveries / enhanced.losses) * 100) / 100 : (enhanced.total_recoveries || 0)
-            enhanced.defensive_duel_success = enhanced.defensive_duels > 0 ? Math.round((enhanced.defensive_duels_won / enhanced.defensive_duels) * 1000) / 10 : 0
-            enhanced.aerial_win_rate = enhanced.aerial_duels > 0 ? Math.round((enhanced.aerial_duels_won / enhanced.aerial_duels) * 1000) / 10 : 0
-            enhanced.tackle_success = enhanced.tackles > 0 ? Math.round((enhanced.tackles_won / enhanced.tackles) * 1000) / 10 : 0
+            enhanced.pass_accuracy = enhanced.total_passes > 0 ? new BigNumber(enhanced.passes_successful).dividedBy(enhanced.total_passes).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.duel_success_rate = enhanced.duels_total > 0 ? new BigNumber(enhanced.duels_won).dividedBy(enhanced.duels_total).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.shot_accuracy = enhanced.total_shots > 0 ? new BigNumber(enhanced.shots_on_target).dividedBy(enhanced.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.conversion_rate = enhanced.total_shots > 0 ? new BigNumber(enhanced.goals).dividedBy(enhanced.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.long_pass_accuracy = enhanced.long_passes > 0 ? new BigNumber(enhanced.long_passes_successful).dividedBy(enhanced.long_passes).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.recovery_loss_ratio = enhanced.losses > 0 ? new BigNumber(enhanced.total_recoveries).dividedBy(enhanced.losses).dp(1).toNumber() : (enhanced.total_recoveries || 0)
+            enhanced.defensive_duel_success = enhanced.defensive_duels > 0 ? new BigNumber(enhanced.defensive_duels_won).dividedBy(enhanced.defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.aerial_win_rate = enhanced.aerial_duels > 0 ? new BigNumber(enhanced.aerial_duels_won).dividedBy(enhanced.aerial_duels).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.tackle_success = enhanced.tackles > 0 ? new BigNumber(enhanced.tackles_won).dividedBy(enhanced.tackles).multipliedBy(100).dp(1).toNumber() : 0
             setData(enhanced)
           } else {
             setData(result)
@@ -541,11 +542,11 @@ export function useTimeline(matchId, interval = 5) {
             events: chunk.length,
             passes: passes.length,
             passesSuccessful: successPasses.length,
-            passAccuracy: passes.length > 0 ? Math.round((successPasses.length / passes.length) * 100) : 0,
+            passAccuracy: passes.length > 0 ? new BigNumber(successPasses.length).dividedBy(passes.length).multipliedBy(100).dp(1).toNumber() : 0,
             duels: duels.length,
             duelsWon: duels.filter(e => e.outcome === 'Won').length,
             shots: shots.length,
-            xg: Math.round(xg * 100) / 100,
+            xg: new BigNumber(xg).dp(1).toNumber(),
             recoveries: recoveries.length,
             losses: losses.length
           })
@@ -688,7 +689,7 @@ function calculateKPIsFromEvents(events) {
   const shots_on_target = shots.filter(e =>
     ['Goal', 'Saved', 'On Target'].includes(e.outcome)
   ).length
-  const xg_total = shots.reduce((sum, e) => sum + (parseFloat(e.xG) || 0), 0)
+  const xg_total = shots.reduce((sum, e) => new BigNumber(sum).plus(parseFloat(e.xG) || 0).toNumber(), 0)
 
   // Chances created = key passes + assists
   const keyPassEvents = events.filter(e =>
@@ -704,8 +705,8 @@ function calculateKPIsFromEvents(events) {
   ).length
 
   // Shot accuracy & conversion rate
-  const shot_accuracy = total_shots > 0 ? Math.round((shots_on_target / total_shots) * 1000) / 10 : 0
-  const conversion_rate = total_shots > 0 ? Math.round((goals / total_shots) * 1000) / 10 : 0
+  const shot_accuracy = total_shots > 0 ? new BigNumber(shots_on_target).dividedBy(total_shots).multipliedBy(100).dp(1).toNumber() : 0
+  const conversion_rate = total_shots > 0 ? new BigNumber(goals).dividedBy(total_shots).multipliedBy(100).dp(1).toNumber() : 0
 
   // ==================== PASS METRICS ====================
   const passEvents = events.filter(e =>
@@ -715,7 +716,7 @@ function calculateKPIsFromEvents(events) {
   const passes_successful = passEvents.filter(e =>
     ['Successful', 'Assist', 'Key Pass', 'Progressive Pass'].includes(e.outcome)
   ).length
-  const pass_accuracy = total_passes > 0 ? Math.round((passes_successful / total_passes) * 1000) / 10 : 0
+  const pass_accuracy = total_passes > 0 ? new BigNumber(passes_successful).dividedBy(total_passes).multipliedBy(100).dp(1).toNumber() : 0
 
   // Progressive passes (passes that move the ball forward significantly)
   const progressive_passes = events.filter(e =>
@@ -729,7 +730,7 @@ function calculateKPIsFromEvents(events) {
   const long_passes_successful = longPassEvents.filter(e =>
     ['Successful', 'Assist', 'Key Pass'].includes(e.outcome)
   ).length
-  const long_pass_accuracy = long_passes > 0 ? Math.round((long_passes_successful / long_passes) * 1000) / 10 : 0
+  const long_pass_accuracy = long_passes > 0 ? new BigNumber(long_passes_successful).dividedBy(long_passes).multipliedBy(100).dp(1).toNumber() : 0
 
   // Key passes (passes leading to shots)
   const key_passes = events.filter(e => e.outcome === 'Key Pass').length
@@ -764,7 +765,7 @@ function calculateKPIsFromEvents(events) {
     e.zone_3x3?.startsWith('R1') || e.pitch_zone === 'Defensive Third'
   ).length
 
-  const recovery_loss_ratio = losses > 0 ? Math.round((total_recoveries / losses) * 100) / 100 : total_recoveries
+  const recovery_loss_ratio = losses > 0 ? new BigNumber(total_recoveries).dividedBy(losses).dp(1).toNumber() : total_recoveries
 
   // ==================== DEFENSIVE METRICS ====================
   // Defensive duels
@@ -773,7 +774,7 @@ function calculateKPIsFromEvents(events) {
   )
   const defensive_duels = defensiveDuelEvents.length
   const defensive_duels_won = defensiveDuelEvents.filter(e => e.outcome === 'Won').length
-  const defensive_duel_success = defensive_duels > 0 ? Math.round((defensive_duels_won / defensive_duels) * 1000) / 10 : 0
+  const defensive_duel_success = defensive_duels > 0 ? new BigNumber(defensive_duels_won).dividedBy(defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
 
   // Aerial duels
   const aerialDuelEvents = events.filter(e =>
@@ -781,7 +782,7 @@ function calculateKPIsFromEvents(events) {
   )
   const aerial_duels = aerialDuelEvents.length
   const aerial_duels_won = aerialDuelEvents.filter(e => e.outcome === 'Won').length
-  const aerial_win_rate = aerial_duels > 0 ? Math.round((aerial_duels_won / aerial_duels) * 1000) / 10 : 0
+  const aerial_win_rate = aerial_duels > 0 ? new BigNumber(aerial_duels_won).dividedBy(aerial_duels).multipliedBy(100).dp(1).toNumber() : 0
 
   // Tackles
   const tackleEvents = events.filter(e => e.event_type === 'Tackle')
@@ -789,7 +790,7 @@ function calculateKPIsFromEvents(events) {
   const tackles_won = tackleEvents.filter(e =>
     e.outcome === 'Won' || e.outcome === 'Successful'
   ).length
-  const tackle_success = tackles > 0 ? Math.round((tackles_won / tackles) * 1000) / 10 : 0
+  const tackle_success = tackles > 0 ? new BigNumber(tackles_won).dividedBy(tackles).multipliedBy(100).dp(1).toNumber() : 0
 
   // Clearances
   const clearances = events.filter(e => e.event_type === 'Clearance').length
@@ -1214,9 +1215,9 @@ export function useMatchLineup(matchId) {
 
         // Create a map for quick player lookup
         const playerMap = {}
-        ;(playersData || []).forEach(p => {
-          playerMap[p.player_id] = p
-        })
+          ; (playersData || []).forEach(p => {
+            playerMap[p.player_id] = p
+          })
 
         // Map to the format expected by LineupFormation
         const mappedLineup = lineupData.map(item => {

@@ -15,35 +15,33 @@ function MatchSelector() {
 
   if (matchesLoading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <p className="text-gray-500">Loading matches...</p>
-      </div>
+      <div className="h-10 w-48 bg-gray-100 rounded-lg animate-pulse" />
     )
   }
 
+  const matchCount = matches?.length || 0
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-      <label className="block text-sm font-medium text-gray-600 mb-2">
-        Select Match
-      </label>
-      <div className="relative">
-        <select
-          value={selectedMatchId || ''}
-          onChange={(e) => setSelectedMatchId(e.target.value)}
-          className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-3 pr-10 text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:border-gray-400 transition-colors"
-              style={{ fontFamily: "'Inter', sans-serif" }}
-        >
+    <div className="relative">
+      <select
+        value={selectedMatchId || 'all'}
+        onChange={(e) => setSelectedMatchId(e.target.value)}
+        className="w-full appearance-none bg-white border border-gray-300 rounded-lg pl-4 pr-10 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:border-gray-400 transition-colors shadow-sm"
+        style={{ fontFamily: "'Inter', sans-serif" }}
+      >
+        <option value="all" className="font-semibold">All Games ({matchCount})</option>
+        <optgroup label="Matches">
           {matches?.map((match) => (
             <option key={match.match_id} value={match.match_id}>
               {getMatchLabel(match)}
             </option>
           ))}
-        </select>
-        <ChevronDown 
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
-          size={20} 
-        />
-      </div>
+        </optgroup>
+      </select>
+      <ChevronDown
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+        size={16}
+      />
     </div>
   )
 }
