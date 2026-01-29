@@ -107,7 +107,12 @@ export function usePlayerStats(matchId) {
             const pid = stat.player_id
             if (!aggregated[pid]) {
               // Initialize with first record's static info, zero out metrics
-              aggregated[pid] = { ...stat, shots: 0, goals: 0, xG: 0, assists: 0, passes: 0, pass_success: 0, minutes_played: 0, total_actions: 0 }
+              aggregated[pid] = {
+                ...stat,
+                shots: 0, goals: 0, xG: 0, assists: 0, passes: 0, pass_success: 0,
+                minutes_played: 0, total_actions: 0,
+                yellow_cards: 0, red_cards: 0
+              }
             }
             aggregated[pid].shots += (stat.shots || 0)
             aggregated[pid].goals += (stat.goals || 0)
@@ -117,6 +122,8 @@ export function usePlayerStats(matchId) {
             aggregated[pid].pass_success += (stat.pass_success || 0)
             aggregated[pid].minutes_played += (stat.minutes_played || 0)
             aggregated[pid].total_actions += (stat.total_actions || 0)
+            aggregated[pid].yellow_cards += (stat.yellow_cards || 0)
+            aggregated[pid].red_cards += (stat.red_cards || 0)
           })
           // Convert back to array
           setData(Object.values(aggregated).sort((a, b) => b.total_actions - a.total_actions))
@@ -136,6 +143,45 @@ export function usePlayerStats(matchId) {
   return { data, loading, error }
 }
 
+// Helper to calculate defensive stats from events
+const calculateDefensiveStats = (events) => {
+  const stats = {
+    defensive_duels: 0, defensive_duels_won: 0,
+    aerial_duels: 0, aerial_duels_won: 0,
+    tackles: 0, tackles_won: 0,
+    clearances: 0, blocks: 0, fouls_committed: 0,
+    interceptions: 0
+  }
+
+  if (!events) return stats
+
+  events.forEach(e => {
+    const type = e.event_type
+    const outcome = e.outcome
+
+    if (type === 'Defensive Duel') {
+      stats.defensive_duels++
+      if (outcome === 'Won') stats.defensive_duels_won++
+    } else if (type === 'Aerial Duel') {
+      stats.aerial_duels++
+      if (outcome === 'Won') stats.aerial_duels_won++
+    } else if (type === 'Tackle') {
+      stats.tackles++
+      if (outcome === 'Won' || outcome === 'Successful') stats.tackles_won++
+    } else if (type === 'Clearance') {
+      stats.clearances++
+    } else if (type === 'Block') {
+      stats.blocks++
+    } else if (type === 'Foul Committed') {
+      stats.fouls_committed++
+    } else if (type === 'Interception') {
+      stats.interceptions++
+    }
+  })
+
+  return stats
+}
+
 // Team stats for a specific match or all matches
 export function useTeamStats(matchId) {
   const [data, setData] = useState(null)
@@ -144,128 +190,126 @@ export function useTeamStats(matchId) {
 
   useEffect(() => {
     async function fetchData() {
-      // if (!matchId) return
-
       try {
         setLoading(true)
-        console.log('3')
-        console.log(data)
+        console.log(`Fetching team_stats for matchId: ${matchId}`)
+        
+        // 1. Fetch base stats from team_stats (contains offensive stats)
         let query = supabase.from('team_stats').select('*')
-
-        if (matchId) {
+        if (matchId && matchId !== 'all') {
           query = query.eq('match_id', matchId).single()
         }
+        
+        const { data: teamStatsResult, error: teamError } = await query
+        if (teamError && teamError.code !== 'PGRST116') throw teamError
 
-        const { data: result, error } = await query
+        console.log('team_stats result:', teamStatsResult)
 
-        if (error && error.code !== 'PGRST116') throw error
+        // 2. Fetch events to calculate defensive stats (missing in team_stats)
+        let allEvents = []
+        let from = 0
+        const pageSize = 1000
+        let hasMore = true
+        
+        while (hasMore) {
+           let eventsQuery = supabase
+             .from('events')
+             .select('event_type, outcome')
+             .range(from, from + pageSize - 1)
+           
+           if (matchId && matchId !== 'all') {
+             eventsQuery = eventsQuery.eq('match_id', matchId)
+           }
+           
+           const { data: page, error: eventsError } = await eventsQuery
+           if (eventsError) throw eventsError
+           
+           if (page && page.length > 0) {
+             allEvents = [...allEvents, ...page]
+             from += pageSize
+             hasMore = page.length === pageSize
+           } else {
+             hasMore = false
+           }
+        }
+
+        const defensiveStats = calculateDefensiveStats(allEvents)
+        console.log('Calculated defensive stats:', defensiveStats)
 
         if (matchId === 'all') {
           // result is an array of stats from all matches
-          if (!result || result.length === 0) {
+          if (!teamStatsResult || teamStatsResult.length === 0) {
             setData(null)
           } else {
-            // Aggregate
+            // Aggregate team_stats AND defensive stats
             const agg = {
-              // Shots metrics
+              // Shots metrics (from team_stats)
               total_shots: 0, goals: 0, shots_on_target: 0, xg_total: 0,
-              chances_created: 0, crosses: 0, crosses_successful: 0,
-              // Pass metrics
-              total_passes: 0, passes_successful: 0,
-              progressive_passes: 0, long_passes: 0, long_passes_successful: 0,
-              key_passes: 0, assists: 0,
-              // Recovery metrics
-              total_recoveries: 0, controlled_recoveries: 0,
-              losses: 0, dangerous_losses: 0,
-              // Defensive metrics
+              // Pass metrics (from team_stats)
+              total_passes: 0, pass_accuracy_sum: 0,
+              // Duels (from team_stats)
               duels_total: 0, duels_won: 0,
-              defensive_duels: 0, defensive_duels_won: 0,
-              aerial_duels: 0, aerial_duels_won: 0,
-              tackles: 0, tackles_won: 0,
-              clearances: 0, blocks: 0, fouls_committed: 0,
-              interceptions: 0,
-              total_events: 0
+              // Recoveries (from team_stats)
+              total_recoveries: 0, total_events: 0,
+              
+              // Defensive metrics (Calculated from events)
+              ...defensiveStats, 
+              
+              count: 0
             }
 
-            result.forEach(r => {
-              // Shots
+            teamStatsResult.forEach(r => {
               agg.total_shots += (r.total_shots || 0)
               agg.goals += (r.goals || 0)
               agg.shots_on_target += (r.shots_on_target || 0)
               agg.xg_total += (r.xg_total || 0)
-              agg.chances_created += (r.chances_created || 0)
-              agg.crosses += (r.crosses || 0)
-              agg.crosses_successful += (r.crosses_successful || 0)
-              // Passes
               agg.total_passes += (r.total_passes || 0)
-              agg.passes_successful += (r.passes_successful || 0)
-              agg.progressive_passes += (r.progressive_passes || 0)
-              agg.long_passes += (r.long_passes || 0)
-              agg.long_passes_successful += (r.long_passes_successful || 0)
-              agg.key_passes += (r.key_passes || 0)
-              agg.assists += (r.assists || 0)
-              // Recoveries
-              agg.total_recoveries += (r.total_recoveries || 0)
-              agg.controlled_recoveries += (r.controlled_recoveries || 0)
-              agg.losses += (r.losses || 0)
-              agg.dangerous_losses += (r.dangerous_losses || 0)
-              // Defensive
+              agg.pass_accuracy_sum += (r.pass_accuracy || 0)
               agg.duels_total += (r.duels_total || 0)
               agg.duels_won += (r.duels_won || 0)
-              agg.defensive_duels += (r.defensive_duels || 0)
-              agg.defensive_duels_won += (r.defensive_duels_won || 0)
-              agg.aerial_duels += (r.aerial_duels || 0)
-              agg.aerial_duels_won += (r.aerial_duels_won || 0)
-              agg.tackles += (r.tackles || 0)
-              agg.tackles_won += (r.tackles_won || 0)
-              agg.clearances += (r.clearances || 0)
-              agg.blocks += (r.blocks || 0)
-              agg.fouls_committed += (r.fouls_committed || 0)
-              agg.interceptions += (r.interceptions || 0)
+              agg.total_recoveries += (r.total_recoveries || 0)
               agg.total_events += (r.total_events || 0)
+              agg.count++
             })
 
-            // Recalculate rates
-            agg.pass_accuracy = agg.total_passes > 0 ? new BigNumber(agg.passes_successful).dividedBy(agg.total_passes).multipliedBy(100).dp(1).toNumber() : 0
-            agg.duel_success_rate = agg.duels_total > 0 ? new BigNumber(agg.duels_won).dividedBy(agg.duels_total).multipliedBy(100).dp(1).toNumber() : 0
-            agg.shot_accuracy = agg.total_shots > 0 ? new BigNumber(agg.shots_on_target).dividedBy(agg.total_shots).multipliedBy(100).dp(1).toNumber() : 0
-            agg.conversion_rate = agg.total_shots > 0 ? new BigNumber(agg.goals).dividedBy(agg.total_shots).multipliedBy(100).dp(1).toNumber() : 0
-            agg.long_pass_accuracy = agg.long_passes > 0 ? new BigNumber(agg.long_passes_successful).dividedBy(agg.long_passes).multipliedBy(100).dp(1).toNumber() : 0
-            agg.recovery_loss_ratio = agg.losses > 0 ? new BigNumber(agg.total_recoveries).dividedBy(agg.losses).dp(1).toNumber() : agg.total_recoveries
-            agg.defensive_duel_success = agg.defensive_duels > 0 ? new BigNumber(agg.defensive_duels_won).dividedBy(agg.defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
-            agg.aerial_win_rate = agg.aerial_duels > 0 ? new BigNumber(agg.aerial_duels_won).dividedBy(agg.aerial_duels).multipliedBy(100).dp(1).toNumber() : 0
-            agg.tackle_success = agg.tackles > 0 ? new BigNumber(agg.tackles_won).dividedBy(agg.tackles).multipliedBy(100).dp(1).toNumber() : 0
+            // Recalculate averaged rates
+            const avgPassAccuracy = agg.count > 0 ? agg.pass_accuracy_sum / agg.count : 0
+            
+            // Recalculate rates that can be calculated
+            const duelSuccess = agg.duels_total > 0 ? (agg.duels_won / agg.duels_total) * 100 : 0
+            
+            // Defensive rates from calculated stats
+            const defensiveDuelSuccess = agg.defensive_duels > 0 ? (agg.defensive_duels_won / agg.defensive_duels) * 100 : 0
+            const aerialWinRate = agg.aerial_duels > 0 ? (agg.aerial_duels_won / agg.aerial_duels) * 100 : 0
+            const tackleSuccess = agg.tackles > 0 ? (agg.tackles_won / agg.tackles) * 100 : 0
 
-            // Add per90 object? The view logic seems to handle per90 separate, 
-            // but Overview.jsx expects raw totals here and calculates per90 itself if needed,
-            // OR it mistakenly expects per90 object on this result. 
-            // Overview.jsx: const stats = useMemo(() => calculateTeamStats(events, matchCount)...) 
-            // Wait, Overview.jsx computes stats from events again? 
-            // Overview line 36: const stats = calculateTeamStats(events...)
-            // Overview line 11 (TeamAnalysis) uses useTeamStats. 
-            // TeamAnalysis.jsx is the one using this hook directly.
-
-            setData(agg)
+            setData({
+                ...agg,
+                pass_accuracy: avgPassAccuracy,
+                duel_success_rate: duelSuccess,
+                defensive_duel_success: defensiveDuelSuccess,
+                aerial_win_rate: aerialWinRate,
+                tackle_success: tackleSuccess
+            })
           }
         } else {
-          // Single match - add calculated rates
-          if (result) {
-            const enhanced = { ...result }
-            enhanced.pass_accuracy = enhanced.total_passes > 0 ? new BigNumber(enhanced.passes_successful).dividedBy(enhanced.total_passes).multipliedBy(100).dp(1).toNumber() : 0
-            enhanced.duel_success_rate = enhanced.duels_total > 0 ? new BigNumber(enhanced.duels_won).dividedBy(enhanced.duels_total).multipliedBy(100).dp(1).toNumber() : 0
-            enhanced.shot_accuracy = enhanced.total_shots > 0 ? new BigNumber(enhanced.shots_on_target).dividedBy(enhanced.total_shots).multipliedBy(100).dp(1).toNumber() : 0
-            enhanced.conversion_rate = enhanced.total_shots > 0 ? new BigNumber(enhanced.goals).dividedBy(enhanced.total_shots).multipliedBy(100).dp(1).toNumber() : 0
-            enhanced.long_pass_accuracy = enhanced.long_passes > 0 ? new BigNumber(enhanced.long_passes_successful).dividedBy(enhanced.long_passes).multipliedBy(100).dp(1).toNumber() : 0
-            enhanced.recovery_loss_ratio = enhanced.losses > 0 ? new BigNumber(enhanced.total_recoveries).dividedBy(enhanced.losses).dp(1).toNumber() : (enhanced.total_recoveries || 0)
-            enhanced.defensive_duel_success = enhanced.defensive_duels > 0 ? new BigNumber(enhanced.defensive_duels_won).dividedBy(enhanced.defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
-            enhanced.aerial_win_rate = enhanced.aerial_duels > 0 ? new BigNumber(enhanced.aerial_duels_won).dividedBy(enhanced.aerial_duels).multipliedBy(100).dp(1).toNumber() : 0
-            enhanced.tackle_success = enhanced.tackles > 0 ? new BigNumber(enhanced.tackles_won).dividedBy(enhanced.tackles).multipliedBy(100).dp(1).toNumber() : 0
+          // Single match
+          if (teamStatsResult) {
+            const enhanced = { ...teamStatsResult, ...defensiveStats }
+            
+            // Rates (ensure they are numbers)
+            enhanced.defensive_duel_success = enhanced.defensive_duels > 0 ? (enhanced.defensive_duels_won / enhanced.defensive_duels) * 100 : 0
+            enhanced.aerial_win_rate = enhanced.aerial_duels > 0 ? (enhanced.aerial_duels_won / enhanced.aerial_duels) * 100 : 0
+            enhanced.tackle_success = enhanced.tackles > 0 ? (enhanced.tackles_won / enhanced.tackles) * 100 : 0
+            
             setData(enhanced)
           } else {
-            setData(result)
+             // Fallback if team_stats is missing but events exist
+             setData(defensiveStats)
           }
         }
       } catch (err) {
+        console.error('Error in useTeamStats:', err)
         setError(err.message)
       } finally {
         setLoading(false)
@@ -621,6 +665,185 @@ export function useTopPerformers(matchId) {
   return { data, loading, error }
 }
 
+// Fetch helper for match stats mini table
+export function useMatchStats(matchId) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!matchId || matchId === 'all') {
+        setData(null)
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+        const { data, error } = await supabase
+          .from('match_stats')
+          .select('*')
+          .eq('match_id', matchId)
+          .single()
+
+        if (error && error.code !== 'PGRST116') throw error // PGRST116 is "No rows found"
+        setData(data)
+      } catch (err) {
+        // If table doesn't exist or other error, handle gracefully
+        console.error('Error fetching match_stats:', err)
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [matchId])
+
+  return { data, loading, error }
+}
+
+// Fetch lineups from match_lineups table with player stats
+export function useLineups(matchId) {
+  const [homeLineup, setHomeLineup] = useState([])
+  const [awayLineup, setAwayLineup] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!matchId || matchId === 'all') {
+        setHomeLineup([])
+        setAwayLineup([])
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+
+        // Fetch lineups from match_lineups table
+        const { data: lineupsData, error: lineupsError } = await supabase
+          .from('match_lineups')
+          .select('*')
+          .eq('match_id', matchId)
+
+        if (lineupsError && lineupsError.code !== '42P01') {
+          throw lineupsError
+        }
+
+        if (!lineupsData || lineupsData.length === 0) {
+          setHomeLineup([])
+          setAwayLineup([])
+          setLoading(false)
+          return
+        }
+
+        // Get unique player IDs
+        const playerIds = lineupsData.map(l => l.player_id).filter(Boolean)
+
+        // Fetch player details
+        const { data: playersData } = await supabase
+          .from('players')
+          .select('*')
+          .in('player_id', playerIds)
+
+        // Fetch minutes played
+        const { data: minutesData } = await supabase
+          .from('player_min')
+          .select('*')
+          .eq('match_id', matchId)
+          .in('player_id', playerIds)
+
+        // Fetch ALL events for these players to count goals, assists, and cards
+        const { data: eventsData } = await supabase
+          .from('events')
+          .select('*')
+          .eq('match_id', matchId)
+          .in('player_id', playerIds)
+
+        // Create player stats map
+        const playerStatsMap = {}
+        if (eventsData) {
+          eventsData.forEach(e => {
+            const pid = e.player_id
+            if (!playerStatsMap[pid]) {
+              playerStatsMap[pid] = { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 }
+            }
+
+            // Count goals: Shot events with Goal outcome
+            if (e.event_type === 'Shot' && e.outcome === 'Goal') {
+              playerStatsMap[pid].goals += 1
+            }
+
+            // Count assists
+            if (e.outcome === 'Assist') {
+              playerStatsMap[pid].assists += 1
+            }
+
+            // Count yellow cards (check both outcome and dedicated field if exists)
+            if (e.outcome === 'Yellow Card' || e.yellow_card === true || e.card_type === 'Yellow') {
+              playerStatsMap[pid].yellow_cards += 1
+            }
+
+            // Count red cards
+            if (e.outcome === 'Red Card' || e.red_card === true || e.card_type === 'Red') {
+              playerStatsMap[pid].red_cards += 1
+            }
+          })
+        }
+
+        // Create minutes map
+        const minutesMap = {}
+        if (minutesData) {
+          minutesData.forEach(m => {
+            minutesMap[m.player_id] = m.minutes_played || 0
+          })
+        }
+
+        // Create players map
+        const playersMap = {}
+        if (playersData) {
+          playersData.forEach(p => {
+            playersMap[p.id] = p
+          })
+        }
+
+        // Map lineup data
+        const players = lineupsData.map(lineup => {
+          const player = playersMap[lineup.player_id]
+          const stats = playerStatsMap[lineup.player_id] || { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 }
+          const minutes = minutesMap[lineup.player_id] || 0
+
+          return {
+            id: lineup.player_id,
+            name: player ? `${player.first_name || ''} ${player.last_name || ''}`.trim() : 'Unknown',
+            number: player?.shirt_number || lineup.shirt_number || '-',
+            position: player?.position || lineup.position || '-',
+            minutes: minutes,
+            team_id: lineup.team_id || player?.team_id,
+            goals: stats.goals,
+            assists: stats.assists,
+            yellow_cards: stats.yellow_cards,
+            red_cards: stats.red_cards
+          }
+        })
+
+        const home = players.filter(p => p.team_id === 'NCF')
+        const away = players.filter(p => p.team_id !== 'NCF')
+
+        setHomeLineup(home)
+        setAwayLineup(away)
+
+      } catch (err) {
+        console.error("Error fetching lineups:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [matchId])
+
+  return { homeLineup, awayLineup, loading }
+}
+
 // Calculate all KPI stats from events table
 export function useKPIStats(matchId) {
   const [data, setData] = useState(null)
@@ -769,9 +992,10 @@ function calculateKPIsFromEvents(events) {
 
   // ==================== DEFENSIVE METRICS ====================
   // Defensive duels
-  const defensiveDuelEvents = events.filter(e =>
-    e.event_type === 'Defensive Duel' || e.event_type === 'Ground Duel'
-  )
+  const defensiveDuelEvents = events.filter(e => {
+    const type = e.event_type?.toLowerCase() || ''
+    return type === 'defensive duel' || type === 'ground duel'
+  })
   const defensive_duels = defensiveDuelEvents.length
   const defensive_duels_won = defensiveDuelEvents.filter(e => e.outcome === 'Won').length
   const defensive_duel_success = defensive_duels > 0 ? new BigNumber(defensive_duels_won).dividedBy(defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
@@ -799,9 +1023,7 @@ function calculateKPIsFromEvents(events) {
   const blocks = events.filter(e => e.event_type === 'Block').length
 
   // Fouls committed
-  const fouls_committed = events.filter(e =>
-    e.event_type === 'Foul' || e.event_type === 'Foul Committed'
-  ).length
+  const fouls_committed = events.filter(e => e.event_type === 'Foul').length
 
   // Interceptions
   const interceptions = events.filter(e => e.event_type === 'Interception').length
@@ -814,49 +1036,22 @@ function calculateKPIsFromEvents(events) {
 
   return {
     // Shots
-    total_shots,
-    goals,
-    shots_on_target,
-    xg_total,
-    chances_created,
-    crosses,
-    crosses_successful,
-    shot_accuracy,
-    conversion_rate,
+    total_shots, goals, shots_on_target, xg_total,
+    chances_created, crosses, crosses_successful,
+    shot_accuracy, conversion_rate,
+
     // Passes
-    total_passes,
-    passes_successful,
-    pass_accuracy,
-    progressive_passes,
-    long_passes,
-    long_passes_successful,
-    long_pass_accuracy,
-    key_passes,
-    assists,
+    total_passes, passes_successful,
+    progressive_passes, long_passes, long_passes_successful,
+    key_passes, assists,
+    pass_accuracy, long_pass_accuracy,
+
     // Recoveries
-    total_recoveries,
-    controlled_recoveries,
-    losses,
-    dangerous_losses,
+    total_recoveries, controlled_recoveries,
+    losses, dangerous_losses,
     recovery_loss_ratio,
+
     // Defensive
-    defensive_duels,
-    defensive_duels_won,
-    defensive_duel_success,
-    aerial_duels,
-    aerial_duels_won,
-    aerial_win_rate,
-    tackles,
-    tackles_won,
-    tackle_success,
-    clearances,
-    blocks,
-    fouls_committed,
-    interceptions,
-    // General
-    duels_total,
-    duels_won,
-    duel_success_rate,
     total_events: events.length
   }
 }

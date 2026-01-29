@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import Per90Toggle from '../components/Per90Toggle'
 import BigNumber from 'bignumber.js'
 import { Target, TrendingUp, Activity, Shield } from 'lucide-react'
-import { useKPIStats } from '../hooks/useFetchData'
+import { useTeamStats, useEvents } from '../hooks/useFetchData'
+import { useMatchInfo, useMatchStats, useMatchLineups } from '../hooks/useMatchData'
 import { useMatch } from '../App'
 import MatchSelector from '../components/MatchSelector'
-import GameInfoCard from '../components/GameInfoCard'
+import MatchInfoBox from '../components/Overview/MatchInfoBox'
+import LineupsAndStatsRow from '../components/Overview/LineupsAndStatsRow'
+import ShotMap from '../components/Overview/ShotMap'
 import KPICard from '../components/KPICard'
-import OutcomesChart from '../components/OutcomesChart'
 import PerformanceChart from '../components/PerformanceChart'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 
@@ -54,7 +56,13 @@ const DEFENSIVE_OPTIONS = [
 
 function Overview() {
   const { selectedMatch, matchesLoading, selectedMatchId, matches } = useMatch()
-  const { data: teamStats, loading, error } = useKPIStats(selectedMatchId)
+  const { data: teamStats, loading, error } = useTeamStats(selectedMatchId)
+
+  // Match-specific data (only when single match selected)
+  const { data: matchInfo, loading: matchInfoLoading } = useMatchInfo(selectedMatchId)
+  const { data: matchStats, loading: matchStatsLoading } = useMatchStats(selectedMatchId)
+  const { homeLineup, awayLineup, loading: lineupsLoading } = useMatchLineups(selectedMatchId)
+  const { data: events, loading: eventsLoading } = useEvents(selectedMatchId)
 
   // State for display mode
   const [isPer90, setIsPer90] = useState(false)
@@ -176,10 +184,10 @@ function Overview() {
         </div>
       </div>
 
-      {/* Game Info Card - Only visible when specific match selected */}
+      {/* Match Info Box - Full width, only for single match */}
       {!isAllGames && (
-        <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
-          <GameInfoCard match={selectedMatch} loading={matchesLoading} />
+        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+          <MatchInfoBox matchInfo={matchInfo} />
         </div>
       )}
 
@@ -231,15 +239,36 @@ function Overview() {
         />
       </div>
 
+      {/* Lineups and Match Stats - Only for single match */}
+      {!isAllGames && (
+        <LineupsAndStatsRow
+          homeLineup={homeLineup}
+          awayLineup={awayLineup}
+          matchStats={matchStats}
+          matchInfo={matchInfo}
+        />
+      )}
+
       {/* Visualizations Section */}
       <div className="space-y-6">
-        {/* Charts Row: Side-by-side */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <PerformanceChart />
-          <OutcomesChart />
-        </div>
+        {/* Single Match: Shot Map + Performance Chart */}
+        {!isAllGames && (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="flex justify-center xl:justify-start">
+              <div className="w-full max-w-[500px]">
+                <ShotMap shots={events} />
+              </div>
+            </div>
+            <PerformanceChart />
+          </div>
+        )}
 
-        {/* Heatmap Section: Horizontal Pitch */}
+        {/* All Games: Just performance chart */}
+        {isAllGames && (
+          <PerformanceChart />
+        )}
+
+        {/* Heatmap Section (both modes) */}
         <div className="animate-in zoom-in-95 duration-500">
           <ActivityHeatmap />
         </div>
