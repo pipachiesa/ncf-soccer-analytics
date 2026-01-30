@@ -1,30 +1,24 @@
-import { ChevronDown, ChevronUp } from 'lucide-react'
-
 // Color mapping for different metric types
 const colorClasses = {
   primary: {
     bg: 'bg-blue-50',
     text: 'text-blue-600',
     border: 'border-blue-200',
-    hoverBg: 'hover:bg-blue-100',
   },
   green: {
     bg: 'bg-green-50',
     text: 'text-green-600',
     border: 'border-green-200',
-    hoverBg: 'hover:bg-green-100',
   },
   orange: {
     bg: 'bg-orange-50',
     text: 'text-orange-600',
     border: 'border-orange-200',
-    hoverBg: 'hover:bg-orange-100',
   },
   purple: {
     bg: 'bg-purple-50',
     text: 'text-purple-600',
     border: 'border-purple-200',
-    hoverBg: 'hover:bg-purple-100',
   },
 }
 
@@ -66,23 +60,11 @@ function MetricBox({
   }
 
   return (
-    <div
-      className={`bg-white rounded-xl border ${isExpanded ? colors.border : 'border-gray-200'} shadow-sm transition-all duration-200 ${isExpanded ? 'ring-1 ring-opacity-50 ' + colors.border : ''}`}
-    >
-      {/* Main content - clickable */}
-      <button
-        onClick={onToggle}
-        className={`w-full p-4 text-left ${colors.hoverBg} rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
-      >
+    <div className={`bg-white rounded-xl border ${colors.border} shadow-sm`}>
+      {/* Main content */}
+      <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-500">{title}</span>
-          {expandedContent.length > 0 && (
-            isExpanded ? (
-              <ChevronUp className={`w-4 h-4 ${colors.text}`} />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            )
-          )}
         </div>
 
         {/* Primary value */}
@@ -96,10 +78,10 @@ function MetricBox({
             {secondaryValue}
           </div>
         )}
-      </button>
+      </div>
 
-      {/* Expanded content */}
-      {isExpanded && expandedContent.length > 0 && (
+      {/* Expanded content - always visible */}
+      {expandedContent.length > 0 && (
         <div className={`px-4 pb-4 border-t ${colors.border}`}>
           <div className="pt-3 space-y-2">
             {expandedContent.map((detail, index) => (

@@ -1376,7 +1376,7 @@ export function useMatchLineup(matchId) {
 
   useEffect(() => {
     async function fetchData() {
-      if (!matchId || matchId === 'all') {
+      if (!matchId) {
         setData(null)
         setLoading(false)
         return
@@ -1385,6 +1385,83 @@ export function useMatchLineup(matchId) {
       try {
         setLoading(true)
 
+        // Handle "all games" - show best XI by minutes played per position
+        if (matchId === 'all') {
+          // Step 1: Get all lineup entries across all matches
+          const { data: allLineups, error: lineupsError } = await supabase
+            .from('match_lineups')
+            .select('*')
+
+          if (lineupsError) throw lineupsError
+          if (!allLineups || allLineups.length === 0) {
+            setData([])
+            setLoading(false)
+            return
+          }
+
+          // Step 2: Get all minutes played data
+          const { data: minutesData, error: minutesError } = await supabase
+            .from('player_min')
+            .select('*')
+
+          if (minutesError) throw minutesError
+
+          // Create minutes map: player_id -> total minutes
+          const totalMinutes = {}
+          ;(minutesData || []).forEach(m => {
+            if (!totalMinutes[m.player_id]) {
+              totalMinutes[m.player_id] = 0
+            }
+            totalMinutes[m.player_id] += (m.minutes_played || 0)
+          })
+
+          // Step 3: For each position, find player with most total minutes
+          const positionPlayers = {}
+          allLineups.forEach(lineup => {
+            const pos = lineup.position_id
+            const playerId = lineup.player_id
+            const mins = totalMinutes[playerId] || 0
+
+            if (!positionPlayers[pos] || mins > positionPlayers[pos].minutes) {
+              positionPlayers[pos] = {
+                player_id: playerId,
+                position_id: pos,
+                minutes: mins
+              }
+            }
+          })
+
+          // Step 4: Get player details
+          const playerIds = Object.values(positionPlayers).map(p => p.player_id)
+          const { data: playersData, error: playersError } = await supabase
+            .from('players')
+            .select('player_id, first_name, last_name, shirt_number')
+            .in('player_id', playerIds)
+
+          if (playersError) throw playersError
+
+          const playerMap = {}
+          ;(playersData || []).forEach(p => {
+            playerMap[p.player_id] = p
+          })
+
+          // Map to lineup format
+          const bestXI = Object.values(positionPlayers).map(item => {
+            const player = playerMap[item.player_id]
+            return {
+              position: item.position_id,
+              number: player?.shirt_number || '?',
+              name: player ? `${player.first_name} ${player.last_name}`.trim() : 'Unknown',
+              minutes: item.minutes
+            }
+          })
+
+          setData(bestXI)
+          setLoading(false)
+          return
+        }
+
+        // Single match lineup
         // Step 1: Get lineup entries for this match
         const { data: lineupData, error: lineupError } = await supabase
           .from('match_lineups')
@@ -1433,6 +1510,149 @@ export function useMatchLineup(matchId) {
     }
     fetchData()
   }, [matchId])
+
+  return { data, loading, error }
+}
+
+// Get all events for a specific player in a specific match
+export function usePlayerEvents(matchId, playerName) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!matchId || !playerName) {
+        setData(null)
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+
+        // Get player_id from players table
+        const { data: playerData, error: playerError } = await supabase
+          .from('players')
+          .select('player_id, first_name, last_name')
+
+        if (playerError) throw playerError
+
+        // Find player by name match
+        const player = playerData?.find(p => {
+          const fullName = `${p.first_name} ${p.last_name}`.trim().toUpperCase()
+          return fullName === playerName.toUpperCase()
+        })
+
+        if (!player) {
+          setData([])
+          setLoading(false)
+          return
+        }
+
+        // Fetch all events for this player with pagination
+        let allEvents = []
+        let from = 0
+        const pageSize = 1000
+        let hasMore = true
+
+        while (hasMore) {
+          let query = supabase
+            .from('events')
+            .select('*')
+            .eq('player_id', player.player_id)
+            .range(from, from + pageSize - 1)
+
+          if (matchId !== 'all') {
+            query = query.eq('match_id', matchId)
+          }
+
+          const { data: pageData, error: eventsError } = await query.order('id', { ascending: true })
+          if (eventsError) throw eventsError
+
+          if (pageData && pageData.length > 0) {
+            allEvents = [...allEvents, ...pageData]
+            from += pageSize
+            hasMore = pageData.length === pageSize
+          } else {
+            hasMore = false
+          }
+        }
+
+        setData(allEvents)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [matchId, playerName])
+
+  return { data, loading, error }
+}
+
+// Get player stats across all matches
+export function usePlayerAllMatches(playerName) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!playerName) {
+        setData(null)
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+
+        // Get player_id from players table
+        const { data: playerData, error: playerError } = await supabase
+          .from('players')
+          .select('player_id, first_name, last_name')
+
+        if (playerError) throw playerError
+
+        // Find player by name match
+        const player = playerData?.find(p => {
+          const fullName = `${p.first_name} ${p.last_name}`.trim().toUpperCase()
+          return fullName === playerName.toUpperCase()
+        })
+
+        if (!player) {
+          setData([])
+          setLoading(false)
+          return
+        }
+
+        // Fetch player stats across all matches
+        const { data: statsData, error: statsError } = await supabase
+          .from('player_stats')
+          .select('*, matches(match_id, date, opponent)')
+          .eq('player_id', player.player_id)
+          .order('match_id', { ascending: false })
+
+        if (statsError) throw statsError
+
+        // Map match info
+        const mappedData = statsData?.map(stat => ({
+          ...stat,
+          matchName: stat.matches?.opponent || stat.match_id,
+          matchDate: stat.matches?.date
+        })) || []
+
+        setData(mappedData)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [playerName])
 
   return { data, loading, error }
 }

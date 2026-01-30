@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Overview from './pages/Overview'
 import TeamAnalysis from './pages/TeamAnalysis'
+import PlayerAnalysis from './pages/PlayerAnalysis'
 import { useMatches } from './hooks/useFetchData'
 
 // Context for selected match
@@ -35,6 +36,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/team-analysis" element={<TeamAnalysis />} />
+            <Route path="/players" element={<PlayerAnalysis />} />
           </Routes>
         </main>
       </div>

@@ -1,11 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, TrendingUp, FileText } from 'lucide-react'
+import { LayoutDashboard, Users, TrendingUp } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
   { to: '/team-analysis', icon: TrendingUp, label: 'Team Analysis' },
-  { to: '#', icon: Users, label: 'Player Analysis', disabled: true },
-  { to: '#', icon: FileText, label: 'Reports', disabled: true },
+  { to: '/players', icon: Users, label: 'Player Analysis' },
 ]
 
 function Sidebar() {
