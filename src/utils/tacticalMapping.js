@@ -34,9 +34,15 @@ export const normalizeCoordinates = (x, y) => {
     const safeX = parseFloat(x) || 0
     const safeY = parseFloat(y) || 0
 
-    // Strict user formula
-    const normX = (safeX * 1.05) / 100
-    const normY = (safeY * 0.95) / 100
+    // Data format: X is 0-105 (meters), Y is 0-100 (percentage)
+    // Normalize to 0-1 range for canvas mapping
+    let normX = safeX / 105  // X: 0-105 -> 0-1
+    const normY = safeY / 100  // Y: 0-100 -> 0-1
+
+    // Move shots at goal line (X > 98%) slightly back into 6-yard box
+    if (normX > 0.98) {
+        normX = 0.95
+    }
 
     return { x: normX, y: normY }
 }
@@ -181,23 +187,18 @@ export const buildTacticalEvents = (events) => {
  * Returns 2D array or flat array of grid cells with % values.
  */
 export const computeZoneControl = (events, gridX = 6, gridY = 4) => {
-    // Buckets
+    // Buckets - Y is inverted so row 0 is top of pitch
     const grid = Array(gridY).fill().map(() => Array(gridX).fill(0))
     let total = 0
 
-    // User rule: x_norm ~ 1.05 max, y_norm ~ 0.95 max
-    // We map 0-1.05 to 0-gridX
-
     events.forEach(e => {
-        // Assuming x_norm/y_norm are calculated.
-        // If passed raw, normalize first
+        // Use normalized coordinates (0-1 range)
         const { x, y } = normalizeCoordinates(e.x, e.y)
 
-        // Map to grid indices
-        // X range: 0 to 1.05
-        // Y range: 0 to 0.95
-        const col = Math.min(Math.floor((x / 1.05) * gridX), gridX - 1)
-        const row = Math.min(Math.floor((y / 0.95) * gridY), gridY - 1)
+        // Map to grid indices (x is 0-1, y is 0-1)
+        const col = Math.min(Math.floor(x * gridX), gridX - 1)
+        // Invert Y for grid (top of pitch = low Y values in data = top rows in grid)
+        const row = Math.min(Math.floor((1 - y) * gridY), gridY - 1)
 
         if (col >= 0 && row >= 0) {
             grid[row][col]++
@@ -206,7 +207,6 @@ export const computeZoneControl = (events, gridX = 6, gridY = 4) => {
     })
 
     // Convert to percentages (0-100)
-    // Avoid diving by zero
     const safeTotal = total || 1
     return grid.map(row => row.map(count => (count / safeTotal) * 100))
 }
@@ -222,11 +222,11 @@ export const computeTerritoryByThirds = (events) => {
 
     events.forEach(e => {
         const { x } = normalizeCoordinates(e.x, e.y)
-        // x is 0 to 1.05
-        // Thirds: < 0.35, 0.35-0.70, > 0.70
+        // x is now 0 to 1 (normalized)
+        // Thirds: < 0.33, 0.33-0.66, > 0.66
 
-        if (x < 0.35) thirds[0]++
-        else if (x < 0.70) thirds[1]++
+        if (x < 0.33) thirds[0]++
+        else if (x < 0.66) thirds[1]++
         else thirds[2]++
 
         total++

@@ -87,7 +87,7 @@ function TacticalPitchCard({ matchId }) {
         // 1. Draw Base
         drawPitchBase(ctx, width, height)
 
-        // 2. Data Layer
+        // 2. Data Layer - Colors optimized for dark green pitch
         if (selectedViz.type === 'canvas') {
             const points = tacticalData[selectedViz.dataKey] || []
             // Shot Map Styling
@@ -97,60 +97,51 @@ function TacticalPitchCard({ matchId }) {
                 const onTarget = points.filter(p => p.shotType === 'on_target')
                 const other = points.filter(p => ['off_target', 'blocked'].includes(p.shotType))
 
-                drawPoints(ctx, other, width, height, { color: '#9ca3af', radius: 3, shape: 'circle' })
-                drawPoints(ctx, onTarget, width, height, { color: '#000000', radius: 4, shape: 'circle' })
-                drawPoints(ctx, goals, width, height, { color: '#000000', radius: 5, shape: 'star' }) // star not impl, use square or distinct
-                drawPoints(ctx, goals, width, height, { color: '#000000', radius: 6, shape: 'square' })
+                drawPoints(ctx, other, width, height, { color: 'rgba(255,255,255,0.6)', radius: 4, shape: 'circle' })
+                drawPoints(ctx, onTarget, width, height, { color: '#facc15', radius: 5, shape: 'circle' }) // Yellow-400
+                drawPoints(ctx, goals, width, height, { color: '#facc15', radius: 7, shape: 'square' }) // Yellow-400
             } else {
-                drawPoints(ctx, points, width, height, { color: '#000000', radius: 3 })
+                drawPoints(ctx, points, width, height, { color: '#ffffff', radius: 4 })
             }
         }
         else if (selectedViz.type === 'canvas_dual') {
             const attempts = tacticalData.crosses_attempted || []
             const successful = tacticalData.crosses_successful || []
-            // Draw failed first
-            const failed = attempts.filter(a => !successful.includes(a)) // This check might fail on obj ref. 
-            // Better: buildTacticalEvents separates them? No, attempted includes successful typically in raw logic, 
-            // but our tacticalMapping separates successful into own array. 
-            // Use ID check or just draw attempts as gray, successful as black on top.
 
-            drawPoints(ctx, attempts, width, height, { color: '#d1d5db', radius: 3 })
-            drawPoints(ctx, successful, width, height, { color: '#000000', radius: 4, shape: 'triangle' })
+            drawPoints(ctx, attempts, width, height, { color: 'rgba(255,255,255,0.5)', radius: 4 })
+            drawPoints(ctx, successful, width, height, { color: '#facc15', radius: 5, shape: 'triangle' }) // Yellow-400
         }
         else if (selectedViz.type === 'canvas_assist') {
             const assists = tacticalData.assists || []
             const keyPasses = tacticalData.key_passes || []
 
-            drawPoints(ctx, keyPasses, width, height, { color: '#6b7280', radius: 3 })
-            drawPoints(ctx, assists, width, height, { color: '#000000', radius: 4, shape: 'square' })
-
-            // Optional lines could go here if linking logic existed
+            drawPoints(ctx, keyPasses, width, height, { color: '#22d3ee', radius: 4 }) // Cyan-400
+            drawPoints(ctx, assists, width, height, { color: '#facc15', radius: 5, shape: 'square' }) // Yellow-400
         }
         else if (selectedViz.type === 'canvas_arrows') {
             const prog = tacticalData.progressive_passes || []
-            drawArrows(ctx, prog, width, height, { color: '#000000', width: 2 })
+            drawArrows(ctx, prog, width, height, { color: '#facc15', width: 2 }) // Yellow-400
         }
         else if (selectedViz.type === 'canvas_recoveries') {
             const rec = tacticalData.recoveries || []
             const int = tacticalData.interceptions || []
             const blk = tacticalData.blocks || []
 
-            drawPoints(ctx, blk, width, height, { color: '#9ca3af', radius: 3, shape: 'square' }) // Blocks
-            drawPoints(ctx, int, width, height, { color: '#4b5563', radius: 3, shape: 'triangle' }) // Int
-            drawPoints(ctx, rec, width, height, { color: '#000000', radius: 4 }) // Rec
+            drawPoints(ctx, blk, width, height, { color: 'rgba(255,255,255,0.5)', radius: 4, shape: 'square' }) // Blocks
+            drawPoints(ctx, int, width, height, { color: '#22d3ee', radius: 4, shape: 'triangle' }) // Cyan-400 Int
+            drawPoints(ctx, rec, width, height, { color: '#facc15', radius: 5 }) // Yellow-400 Rec
         }
         else if (selectedViz.type === 'canvas_pressure') {
             const press = tacticalData.pressures || []
-            const duels = [...(tacticalData.duels_defensive || []), ...(tacticalData.duels_offensive || [])]
 
             if (press.length > 0) {
-                drawPoints(ctx, press, width, height, { color: '#ef4444', radius: 4, alpha: 0.5 }) // Pressure usually heat-like, use red dots
+                drawPoints(ctx, press, width, height, { color: '#f87171', radius: 5, alpha: 0.7 }) // Red-400 Pressure
             } else {
                 // Fallback to duels
                 const def = tacticalData.duels_defensive || []
                 const off = tacticalData.duels_offensive || []
-                drawPoints(ctx, def, width, height, { color: '#000000', radius: 3 })
-                drawPoints(ctx, off, width, height, { color: '#9ca3af', radius: 3, shape: 'triangle' })
+                drawPoints(ctx, def, width, height, { color: '#facc15', radius: 4 }) // Yellow-400
+                drawPoints(ctx, off, width, height, { color: '#22d3ee', radius: 4, shape: 'triangle' }) // Cyan-400
             }
         }
         else if (selectedViz.type === 'grid' || selectedViz.type === 'grid_filtered') {
@@ -250,23 +241,23 @@ function TacticalPitchCard({ matchId }) {
 
                 {/* Canvas or Chart Rendering */}
                 {(selectedViz.type.startsWith('chart')) ? (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-full flex items-center justify-center">
                         {chartData ? (
-                            <div className="w-full max-w-md h-64 flex rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-white">
+                            <div className="w-full aspect-[105/68] flex rounded-lg overflow-hidden border border-gray-200 shadow-md bg-white">
                                 {/* Defensive Third */}
-                                <div className="h-full bg-red-50 flex flex-col items-center justify-center border-r border-gray-100 transition-all" style={{ width: '33.3%' }}>
-                                    <span className="text-3xl font-bold text-gray-800">{chartData[0]}%</span>
-                                    <span className="text-xs text-gray-500 uppercase mt-1">Defensive</span>
+                                <div className="h-full bg-red-200 flex flex-col items-center justify-center border-r border-gray-200 transition-all" style={{ width: '33.3%' }}>
+                                    <span className="text-5xl font-bold text-gray-800">{chartData[0]}%</span>
+                                    <span className="text-sm text-gray-600 uppercase mt-2 tracking-wide">Defensive</span>
                                 </div>
                                 {/* Middle Third */}
-                                <div className="h-full bg-gray-50 flex flex-col items-center justify-center border-r border-gray-100 transition-all" style={{ width: '33.3%' }}>
-                                    <span className="text-3xl font-bold text-gray-800">{chartData[1]}%</span>
-                                    <span className="text-xs text-gray-500 uppercase mt-1">Middle</span>
+                                <div className="h-full bg-gray-200 flex flex-col items-center justify-center border-r border-gray-300 transition-all" style={{ width: '33.3%' }}>
+                                    <span className="text-5xl font-bold text-gray-800">{chartData[1]}%</span>
+                                    <span className="text-sm text-gray-600 uppercase mt-2 tracking-wide">Middle</span>
                                 </div>
                                 {/* Attacking Third */}
-                                <div className="h-full bg-blue-50 flex flex-col items-center justify-center transition-all" style={{ width: '33.3%' }}>
-                                    <span className="text-3xl font-bold text-gray-800">{chartData[2]}%</span>
-                                    <span className="text-xs text-gray-500 uppercase mt-1">Attacking</span>
+                                <div className="h-full bg-blue-200 flex flex-col items-center justify-center transition-all" style={{ width: '33.3%' }}>
+                                    <span className="text-5xl font-bold text-gray-800">{chartData[2]}%</span>
+                                    <span className="text-sm text-gray-600 uppercase mt-2 tracking-wide">Attacking</span>
                                 </div>
                             </div>
                         ) : (
@@ -274,37 +265,59 @@ function TacticalPitchCard({ matchId }) {
                         )}
                     </div>
                 ) : (
-                    <div className="relative w-full max-w-[600px] aspect-[105/68]">
+                    <div className="relative w-full aspect-[105/68]">
                         <canvas
                             ref={canvasRef}
-                            width={630} // 105 * 6
-                            height={408} // 68 * 6
-                            className="w-full h-full object-contain drop-shadow-sm"
+                            width={840} // 105 * 8 for better resolution
+                            height={544} // 68 * 8 for better resolution
+                            className="w-full h-full rounded-lg shadow-md"
                         />
 
                         {/* Clean Legend Overlay */}
-                        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-600 shadow-sm pointer-events-none">
+                        <div className="absolute bottom-3 left-3 bg-gray-900/85 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-white shadow-lg pointer-events-none">
                             <div className="font-semibold mb-1">{selectedViz.label}</div>
                             {/* Dynamic legend based on type */}
                             {selectedViz.id === 'shot_map' && (
                                 <div className="flex gap-3">
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-black"></span> Goal/Target</span>
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400"></span> Off/Blocked</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400"></span> Goal/Target</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-white/60"></span> Off/Blocked</span>
                                 </div>
                             )}
                             {selectedViz.type === 'canvas_dual' && (
                                 <div className="flex gap-3">
-                                    <span className="flex items-center gap-1"><div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-black"></div> Successful</span>
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300"></span> Attempt</span>
+                                    <span className="flex items-center gap-1"><div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-yellow-400"></div> Successful</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-white/50"></span> Attempt</span>
                                 </div>
                             )}
                             {selectedViz.id === 'chance_creation' && (
                                 <div className="flex gap-3">
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 bg-black"></span> Assist</span>
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-500"></span> Key Pass</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 bg-yellow-400"></span> Assist</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-400"></span> Key Pass</span>
                                 </div>
                             )}
-                            {selectedViz.type === 'grid' && <span>% share of zone activity</span>}
+                            {selectedViz.type === 'grid' && (
+                                <div className="flex items-center gap-2">
+                                    <span>% zone activity</span>
+                                    <div className="flex h-2 w-16 rounded overflow-hidden" style={{ background: 'linear-gradient(to right, #dbeafe, #3b82f6, #1e40af)' }}>
+                                    </div>
+                                </div>
+                            )}
+                            {selectedViz.id === 'recoveries_map' && (
+                                <div className="flex gap-3">
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400"></span> Recovery</span>
+                                    <span className="flex items-center gap-1"><div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-cyan-400"></div> Interception</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 bg-white/50"></span> Block</span>
+                                </div>
+                            )}
+                            {selectedViz.id === 'progressive' && (
+                                <span className="flex items-center gap-1">Forward passes advancing toward goal</span>
+                            )}
+                            {selectedViz.id === 'pressure' && (
+                                <div className="flex gap-3">
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400"></span> Defensive Duel</span>
+                                    <span className="flex items-center gap-1"><div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-cyan-400"></div> Offensive Duel</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

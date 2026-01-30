@@ -28,15 +28,15 @@ function ShotMap({ shots }) {
             coordMap.get(key).push(shot)
         })
 
-        // Apply jitter
+        // Apply jitter - increased radius for better separation
         const processed = []
         coordMap.forEach((group) => {
             if (group.length === 1) {
                 processed.push({ ...group[0], jitterX: 0, jitterY: 0 })
             } else {
                 group.forEach((shot, idx) => {
-                    const angle = (idx / group.length) * 2 * Math.PI
-                    const radius = 1.2
+                    const angle = (idx / group.length) * 2 * Math.PI + Math.PI / 4 // offset angle
+                    const radius = 8 + (group.length * 2) // larger radius for more shots
                     processed.push({
                         ...shot,
                         jitterX: Math.cos(angle) * radius,
@@ -171,46 +171,36 @@ function ShotMap({ shots }) {
         ctx.stroke()
 
         // Draw Shots
+        // Convert raw coordinates to percentage of field (105m x 68m)
+        // Then map to canvas
         processedShots.forEach(shot => {
-            // Mapping:
-            // Data X: 0-100 (100 is opponent goal line). We want X=100 at Y=0.
-            // Data Y: 0-100 (50 is center). We want Y=50 at X=width/2.
-
             const rawX = parseFloat(shot.x)
             const rawY = parseFloat(shot.y)
 
-            // Normalize to meters first?
-            // Standard pitch 105x68
-            // X_meters = (rawX / 100) * 105. 
-            // Y_meters = (rawY / 100) * 68.
+            // Convert to percentage of field dimensions
+            // X: 0-105 -> 0-100% of pitch length (105 = goal line)
+            // Y: 0-100 -> 0-100% of pitch width (50 = center)
+            let x_pct = (rawX / 105) * 100
+            const y_pct = rawY  // Y already appears to be 0-100 scale
 
-            // In vertical view (Attacking):
-            // CanvasY = (105 - X_meters) * scaleY
-            // CanvasX = Y_meters * scaleX
-            // Wait, Y=0 is usually bottom-left in data? Or top-left?
-            // Usually Y=0 is left, Y=100 is right (looking from center to goal).
-            // If X=100 is goal, Y=50 is center.
-            // CanvasX: 0 is Left touchline, width is Right touchline.
-            // So CanvasX = (rawY / 100) * width.
-            // CanvasY: 0 is Goal line (X=100). Height is Halfway line (X=50).
-            // So CanvasY = ((100 - rawX) / 50) * height (since we cover 50 units).
+            // Move shots at goal line (X=105) down into the 6-yard box area
+            // 6-yard box is ~5.5m from goal, which is about 5% of pitch length
+            if (x_pct > 98) {
+                x_pct = 95  // Place them around the 6-yard box area
+            }
 
-            // Jitter
+            // Jitter (offset to separate overlapping shots)
             const x_j = shot.jitterX || 0
             const y_j = shot.jitterY || 0
 
-            // Inverted X/Y for vertical
-            // Data X -> Canvas Y
-            // Data Y -> Canvas X
+            // Map to canvas (vertical half-pitch view):
+            // canvasX: Y percentage (0-100%) maps to canvas width (INVERTED - right to left)
+            // canvasY: X percentage from attacking half (50-100%) maps to canvas height (100% at top, 50% at bottom)
+            const canvasX = ((100 - y_pct) / 100) * width + x_j
+            const canvasY = ((100 - x_pct) / 50) * height + y_j + 15 // offset down by 15px
 
-            const canvasX = (rawY / 100) * width + x_j * scaleX
-
-            // X goes 50->100.
-            // At 100 -> Y=0. At 50 -> Y=height.
-            const canvasY = ((100 - rawX) / 50) * height + y_j * scaleY
-
-            // Skip if undefined or out of range (defensive half shots?)
-            if (rawX < 50) return
+            // Skip if in defensive half (X < 50% of pitch)
+            if (x_pct < 50) return
 
             const outcome = shot.outcome
             let color = '#999'
@@ -262,10 +252,21 @@ function ShotMap({ shots }) {
         for (const shot of processedShots) {
             const rawX = parseFloat(shot.x)
             const rawY = parseFloat(shot.y)
-            if (rawX < 50) continue
 
-            const canvasX = (rawY / 100) * width + (shot.jitterX || 0) * scaleX
-            const canvasY = ((100 - rawX) / 50) * height + (shot.jitterY || 0) * scaleY
+            // Convert to percentage
+            let x_pct = (rawX / 105) * 100
+            const y_pct = rawY  // Y already 0-100 scale
+
+            if (x_pct < 50) continue
+
+            // Same adjustment as drawing - move goal line shots into 6-yard box
+            if (x_pct > 98) {
+                x_pct = 95
+            }
+
+            // Same coordinate mapping as drawing (Y inverted)
+            const canvasX = ((100 - y_pct) / 100) * width + (shot.jitterX || 0)
+            const canvasY = ((100 - x_pct) / 50) * height + (shot.jitterY || 0) + 15
 
             const distance = Math.sqrt(Math.pow(mouseX - canvasX, 2) + Math.pow(mouseY - canvasY, 2))
             if (distance < 10 && distance < minDistance) {
