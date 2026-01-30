@@ -68,6 +68,70 @@ export function useMatchInfo(matchId) {
 }
 
 // Player stats for a specific match or all matches
+// Helper to calculate derived stats per player from events
+const calculatePlayerDerivedStats = (events) => {
+  const playerStats = {}
+
+  if (!events) return playerStats
+
+  events.forEach(e => {
+    const pid = e.player_id
+    if (!pid) return
+
+    if (!playerStats[pid]) {
+      playerStats[pid] = {
+        defensive_duels: 0, defensive_duels_won: 0,
+        aerial_duels: 0, aerial_duels_won: 0,
+        tackles: 0, tackles_won: 0,
+        total_recoveries: 0,
+        interceptions: 0,
+        clearances: 0,
+        blocks: 0,
+        fouls_committed: 0,
+        duels_total: 0, duels_won: 0
+      }
+    }
+
+    const s = playerStats[pid]
+    const type = e.event_type
+    const outcome = e.outcome
+
+    if (type === 'Defensive Duel') {
+      s.defensive_duels++
+      if (outcome === 'Won') s.defensive_duels_won++
+    } else if (type === 'Aerial Duel') {
+      s.aerial_duels++
+      if (outcome === 'Won') s.aerial_duels_won++
+    } else if (type === 'Tackle') {
+      s.tackles++
+      if (outcome === 'Won' || outcome === 'Successful') s.tackles_won++
+    } else if (type === 'Clearance') {
+      s.clearances++
+    } else if (type === 'Block') {
+      s.blocks++
+    } else if (type === 'Foul Committed') {
+      s.fouls_committed++
+    } else if (type === 'Interception') {
+      s.interceptions++
+    }
+
+    if (['Recovery', 'Interception'].includes(type)) {
+      s.total_recoveries++
+    }
+
+    // Consolidated Duels (including Tackles as per previous logic)
+    if ((type && type.includes('Duel')) || type === 'Tackle') {
+      s.duels_total++
+      if (outcome === 'Won' || (type === 'Tackle' && outcome === 'Successful')) {
+        s.duels_won++
+      }
+    }
+  })
+
+  return playerStats
+}
+
+// Player stats for a specific match or all matches
 export function usePlayerStats(matchId) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -79,8 +143,9 @@ export function usePlayerStats(matchId) {
       if (!matchId) return
 
       try {
-        console.log('2')
         setLoading(true)
+
+        // 1. Fetch base stats from player_stats table
         let query = supabase.from('player_stats').select('*, players(first_name, last_name, position, shirt_number)')
 
         // Filter by matchId only if it's not 'all'
@@ -92,23 +157,69 @@ export function usePlayerStats(matchId) {
 
         if (error) throw error
 
-        // Map player names from joined players table
-        const mappedData = rawData.map(stat => ({
-          ...stat,
-          player: stat.players ? `${stat.players.first_name} ${stat.players.last_name}`.trim() : 'Unknown',
-          position: stat.players?.position,
-          shirt_number: stat.players?.shirt_number
-        }))
+        // 2. Fetch events to calculate derived player stats (missing in player_stats)
+        let allEvents = []
+        let from = 0
+        const pageSize = 1000
+        let hasMore = true
+
+        while (hasMore) {
+          let eventsQuery = supabase
+            .from('events')
+            .select('*')
+            .range(from, from + pageSize - 1)
+
+          if (matchId && matchId !== 'all') {
+            eventsQuery = eventsQuery.eq('match_id', matchId)
+          }
+
+          const { data: page, error: eventsError } = await eventsQuery
+          if (eventsError) throw eventsError
+
+          if (page && page.length > 0) {
+            allEvents = [...allEvents, ...page]
+            from += pageSize
+            hasMore = page.length === pageSize
+          } else {
+            hasMore = false
+          }
+        }
+
+        // Calculate derived stats per player
+        const derivedStatsMap = calculatePlayerDerivedStats(allEvents)
+
+        // Map player names from joined players table and merge derived stats
+        const mappedData = rawData.map(stat => {
+          const pid = stat.player_id
+          const derived = derivedStatsMap[pid] || {}
+
+          return {
+            ...stat,
+            player: stat.players ? `${stat.players.first_name} ${stat.players.last_name}`.trim() : 'Unknown',
+            position: stat.players?.position,
+            shirt_number: stat.players?.shirt_number,
+            ...derived // Merge derived stats
+          }
+        })
+
+        // Also handle players who might have events but NO player_stats row? 
+        // (Unlikely if seeding is correct, but safer to stick to player_stats as base for roster)
 
         if (matchId === 'all') {
-          // Aggregate stats by player_id
+          // 1. Aggregate standard stats from player_stats by player_id
           const aggregated = {}
-          mappedData.forEach(stat => {
+
+          // Use rawData directly first, don't use mappedData which has derived stats merged incorrectly for this case
+          rawData.forEach(stat => {
             const pid = stat.player_id
             if (!aggregated[pid]) {
-              // Initialize with first record's static info, zero out metrics
+              // Initialize with first record's static info
               aggregated[pid] = {
-                ...stat,
+                player_id: stat.player_id,
+                player: stat.players ? `${stat.players.first_name} ${stat.players.last_name}`.trim() : 'Unknown',
+                position: stat.players?.position,
+                shirt_number: stat.players?.shirt_number,
+                // Metrics to sum
                 shots: 0, goals: 0, xG: 0, assists: 0, passes: 0, pass_success: 0,
                 minutes_played: 0, total_actions: 0,
                 yellow_cards: 0, red_cards: 0
@@ -125,11 +236,28 @@ export function usePlayerStats(matchId) {
             aggregated[pid].yellow_cards += (stat.yellow_cards || 0)
             aggregated[pid].red_cards += (stat.red_cards || 0)
           })
-          // Convert back to array
-          setData(Object.values(aggregated).sort((a, b) => b.total_actions - a.total_actions))
+
+          // 2. Merge derived stats (which are already totals for all events)
+          const finalAggregated = Object.values(aggregated).map(p => {
+            const pid = p.player_id
+            const derived = derivedStatsMap[pid] || {
+              defensive_duels: 0, defensive_duels_won: 0,
+              aerial_duels: 0, aerial_duels_won: 0,
+              tackles: 0, tackles_won: 0,
+              total_recoveries: 0, clearances: 0, blocks: 0,
+              fouls_committed: 0, interceptions: 0,
+              duels_total: 0, duels_won: 0
+            }
+            return { ...p, ...derived }
+          })
+
+          setData(finalAggregated.sort((a, b) => b.total_actions - a.total_actions))
         } else {
+          // Single match
+          // mappedData already has derived stats merged correctly for single match
           setData(mappedData.sort((a, b) => b.total_actions - a.total_actions))
         }
+
 
       } catch (err) {
         setError(err.message)
@@ -144,13 +272,28 @@ export function usePlayerStats(matchId) {
 }
 
 // Helper to calculate defensive stats from events
-const calculateDefensiveStats = (events) => {
+// Helper to calculate derived stats from events (missing from aggregated tables)
+const calculateDerivedStats = (events) => {
   const stats = {
+    // Defensive
     defensive_duels: 0, defensive_duels_won: 0,
     aerial_duels: 0, aerial_duels_won: 0,
     tackles: 0, tackles_won: 0,
     clearances: 0, blocks: 0, fouls_committed: 0,
-    interceptions: 0
+    interceptions: 0,
+
+    // Passing / Creative
+    progressive_passes: 0,
+    long_passes: 0, long_passes_successful: 0,
+    key_passes: 0,
+    assists: 0,
+    chances_created: 0,
+    crosses: 0, crosses_successful: 0,
+
+    // Possession
+    controlled_recoveries: 0,
+    dangerous_losses: 0,
+    losses: 0
   }
 
   if (!events) return stats
@@ -159,6 +302,7 @@ const calculateDefensiveStats = (events) => {
     const type = e.event_type
     const outcome = e.outcome
 
+    // Defensive
     if (type === 'Defensive Duel') {
       stats.defensive_duels++
       if (outcome === 'Won') stats.defensive_duels_won++
@@ -177,6 +321,38 @@ const calculateDefensiveStats = (events) => {
     } else if (type === 'Interception') {
       stats.interceptions++
     }
+
+    // Passing & Creative
+    if (outcome === 'Assist') stats.assists++
+    if (outcome === 'Key Pass') stats.key_passes++
+    if (outcome === 'Key Pass' || outcome === 'Assist') stats.chances_created++
+
+    if (type === 'Long Pass') {
+      stats.long_passes++
+      if (['Successful', 'Assist', 'Key Pass'].includes(outcome)) stats.long_passes_successful++
+    }
+
+    if (outcome === 'Progressive Pass' || (type === 'Pass' && e.progressive === true)) {
+      stats.progressive_passes++
+    }
+
+    if (type === 'Cross') {
+      stats.crosses++
+      if (['Successful', 'Assist'].includes(outcome)) stats.crosses_successful++
+    }
+
+    // Recoveries
+    if (['Recovery', 'Interception'].includes(type)) {
+      if (outcome === 'Successful' || outcome === 'Controlled') stats.controlled_recoveries++
+    }
+
+    // Losses
+    if (type === 'Loss' || type === 'Ball Lost' || outcome === 'Lost' || (type === 'Pass' && outcome === 'Unsuccessful')) {
+      stats.losses++
+      if (e.zone_3x3?.startsWith('R1') || e.pitch_zone === 'Defensive Third') {
+        stats.dangerous_losses++
+      }
+    }
   })
 
   return stats
@@ -193,68 +369,65 @@ export function useTeamStats(matchId) {
       try {
         setLoading(true)
         console.log(`Fetching team_stats for matchId: ${matchId}`)
-        
+
         // 1. Fetch base stats from team_stats (contains offensive stats)
         let query = supabase.from('team_stats').select('*')
         if (matchId && matchId !== 'all') {
           query = query.eq('match_id', matchId).single()
         }
-        
+
         const { data: teamStatsResult, error: teamError } = await query
         if (teamError && teamError.code !== 'PGRST116') throw teamError
 
         console.log('team_stats result:', teamStatsResult)
 
-        // 2. Fetch events to calculate defensive stats (missing in team_stats)
+        // 2. Fetch events to calculate derived stats (missing in team_stats)
         let allEvents = []
         let from = 0
         const pageSize = 1000
         let hasMore = true
-        
+
         while (hasMore) {
-           let eventsQuery = supabase
-             .from('events')
-             .select('event_type, outcome')
-             .range(from, from + pageSize - 1)
-           
-           if (matchId && matchId !== 'all') {
-             eventsQuery = eventsQuery.eq('match_id', matchId)
-           }
-           
-           const { data: page, error: eventsError } = await eventsQuery
-           if (eventsError) throw eventsError
-           
-           if (page && page.length > 0) {
-             allEvents = [...allEvents, ...page]
-             from += pageSize
-             hasMore = page.length === pageSize
-           } else {
-             hasMore = false
-           }
+          let eventsQuery = supabase
+            .from('events')
+            .select('*') // Select all for now to be safe with zone/outcome checks
+            .range(from, from + pageSize - 1)
+
+          if (matchId && matchId !== 'all') {
+            eventsQuery = eventsQuery.eq('match_id', matchId)
+          }
+
+          const { data: page, error: eventsError } = await eventsQuery
+          if (eventsError) throw eventsError
+
+          if (page && page.length > 0) {
+            allEvents = [...allEvents, ...page]
+            from += pageSize
+            hasMore = page.length === pageSize
+          } else {
+            hasMore = false
+          }
         }
 
-        const defensiveStats = calculateDefensiveStats(allEvents)
-        console.log('Calculated defensive stats:', defensiveStats)
+        const derivedStats = calculateDerivedStats(allEvents)
+        console.log('Calculated derived stats:', derivedStats)
 
         if (matchId === 'all') {
           // result is an array of stats from all matches
           if (!teamStatsResult || teamStatsResult.length === 0) {
             setData(null)
           } else {
-            // Aggregate team_stats AND defensive stats
+            // Aggregate team_stats AND derived stats
             const agg = {
-              // Shots metrics (from team_stats)
+              // Base Metrics (from team_stats)
               total_shots: 0, goals: 0, shots_on_target: 0, xg_total: 0,
-              // Pass metrics (from team_stats)
-              total_passes: 0, pass_accuracy_sum: 0,
-              // Duels (from team_stats)
+              total_passes: 0, passes_successful: 0, pass_accuracy_sum: 0,
               duels_total: 0, duels_won: 0,
-              // Recoveries (from team_stats)
               total_recoveries: 0, total_events: 0,
-              
-              // Defensive metrics (Calculated from events)
-              ...defensiveStats, 
-              
+
+              // Derived Metrics (Calculated from events)
+              ...derivedStats,
+
               count: 0
             }
 
@@ -264,6 +437,7 @@ export function useTeamStats(matchId) {
               agg.shots_on_target += (r.shots_on_target || 0)
               agg.xg_total += (r.xg_total || 0)
               agg.total_passes += (r.total_passes || 0)
+              agg.passes_successful += (r.passes_successful || 0)
               agg.pass_accuracy_sum += (r.pass_accuracy || 0)
               agg.duels_total += (r.duels_total || 0)
               agg.duels_won += (r.duels_won || 0)
@@ -273,39 +447,53 @@ export function useTeamStats(matchId) {
             })
 
             // Recalculate averaged rates
-            const avgPassAccuracy = agg.count > 0 ? agg.pass_accuracy_sum / agg.count : 0
-            
-            // Recalculate rates that can be calculated
-            const duelSuccess = agg.duels_total > 0 ? (agg.duels_won / agg.duels_total) * 100 : 0
-            
-            // Defensive rates from calculated stats
-            const defensiveDuelSuccess = agg.defensive_duels > 0 ? (agg.defensive_duels_won / agg.defensive_duels) * 100 : 0
-            const aerialWinRate = agg.aerial_duels > 0 ? (agg.aerial_duels_won / agg.aerial_duels) * 100 : 0
-            const tackleSuccess = agg.tackles > 0 ? (agg.tackles_won / agg.tackles) * 100 : 0
+            const passAccuracy = agg.total_passes > 0 ? new BigNumber(agg.passes_successful).dividedBy(agg.total_passes).multipliedBy(100).dp(1).toNumber() : 0
+            const shotAccuracy = agg.total_shots > 0 ? new BigNumber(agg.shots_on_target).dividedBy(agg.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+            const duelSuccess = agg.duels_total > 0 ? new BigNumber(agg.duels_won).dividedBy(agg.duels_total).multipliedBy(100).dp(1).toNumber() : 0
+
+            // Recalculate derived rates
+            const defensiveDuelSuccess = agg.defensive_duels > 0 ? new BigNumber(agg.defensive_duels_won).dividedBy(agg.defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
+            const aerialWinRate = agg.aerial_duels > 0 ? new BigNumber(agg.aerial_duels_won).dividedBy(agg.aerial_duels).multipliedBy(100).dp(1).toNumber() : 0
+            const tackleSuccess = agg.tackles > 0 ? new BigNumber(agg.tackles_won).dividedBy(agg.tackles).multipliedBy(100).dp(1).toNumber() : 0
+            const longPassAccuracy = agg.long_passes > 0 ? new BigNumber(agg.long_passes_successful).dividedBy(agg.long_passes).multipliedBy(100).dp(1).toNumber() : 0
+            const conversionRate = agg.total_shots > 0 ? new BigNumber(agg.goals).dividedBy(agg.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+
+            // Recovery/Loss Ratio
+            const recoveryLossRatio = agg.losses > 0 ? new BigNumber(agg.total_recoveries).dividedBy(agg.losses).dp(2).toNumber() : agg.total_recoveries
 
             setData({
-                ...agg,
-                pass_accuracy: avgPassAccuracy,
-                duel_success_rate: duelSuccess,
-                defensive_duel_success: defensiveDuelSuccess,
-                aerial_win_rate: aerialWinRate,
-                tackle_success: tackleSuccess
+              ...agg,
+              pass_accuracy: passAccuracy,
+              shot_accuracy: shotAccuracy,
+              duel_success_rate: duelSuccess,
+              defensive_duel_success: defensiveDuelSuccess,
+              aerial_win_rate: aerialWinRate,
+              tackle_success: tackleSuccess,
+              long_pass_accuracy: longPassAccuracy,
+              conversion_rate: conversionRate,
+              recovery_loss_ratio: recoveryLossRatio
             })
           }
         } else {
           // Single match
           if (teamStatsResult) {
-            const enhanced = { ...teamStatsResult, ...defensiveStats }
-            
-            // Rates (ensure they are numbers)
-            enhanced.defensive_duel_success = enhanced.defensive_duels > 0 ? (enhanced.defensive_duels_won / enhanced.defensive_duels) * 100 : 0
-            enhanced.aerial_win_rate = enhanced.aerial_duels > 0 ? (enhanced.aerial_duels_won / enhanced.aerial_duels) * 100 : 0
-            enhanced.tackle_success = enhanced.tackles > 0 ? (enhanced.tackles_won / enhanced.tackles) * 100 : 0
-            
+            const enhanced = { ...teamStatsResult, ...derivedStats }
+
+            // Add rates
+            enhanced.defensive_duel_success = enhanced.defensive_duels > 0 ? new BigNumber(enhanced.defensive_duels_won).dividedBy(enhanced.defensive_duels).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.aerial_win_rate = enhanced.aerial_duels > 0 ? new BigNumber(enhanced.aerial_duels_won).dividedBy(enhanced.aerial_duels).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.tackle_success = enhanced.tackles > 0 ? new BigNumber(enhanced.tackles_won).dividedBy(enhanced.tackles).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.long_pass_accuracy = enhanced.long_passes > 0 ? new BigNumber(enhanced.long_passes_successful).dividedBy(enhanced.long_passes).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.conversion_rate = enhanced.total_shots > 0 ? new BigNumber(enhanced.goals).dividedBy(enhanced.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.recovery_loss_ratio = enhanced.losses > 0 ? new BigNumber(enhanced.total_recoveries).dividedBy(enhanced.losses).dp(2).toNumber() : enhanced.total_recoveries
+
+            enhanced.pass_accuracy = enhanced.total_passes > 0 ? new BigNumber(enhanced.passes_successful).dividedBy(enhanced.total_passes).multipliedBy(100).dp(1).toNumber() : 0
+            enhanced.shot_accuracy = enhanced.total_shots > 0 ? new BigNumber(enhanced.shots_on_target).dividedBy(enhanced.total_shots).multipliedBy(100).dp(1).toNumber() : 0
+
             setData(enhanced)
           } else {
-             // Fallback if team_stats is missing but events exist
-             setData(defensiveStats)
+            // Fallback
+            setData(derivedStats)
           }
         }
       } catch (err) {
@@ -1408,12 +1596,12 @@ export function useMatchLineup(matchId) {
 
           // Create minutes map: player_id -> total minutes
           const totalMinutes = {}
-          ;(minutesData || []).forEach(m => {
-            if (!totalMinutes[m.player_id]) {
-              totalMinutes[m.player_id] = 0
-            }
-            totalMinutes[m.player_id] += (m.minutes_played || 0)
-          })
+            ; (minutesData || []).forEach(m => {
+              if (!totalMinutes[m.player_id]) {
+                totalMinutes[m.player_id] = 0
+              }
+              totalMinutes[m.player_id] += (m.minutes_played || 0)
+            })
 
           // Step 3: For each position, find player with most total minutes
           const positionPlayers = {}
@@ -1441,9 +1629,9 @@ export function useMatchLineup(matchId) {
           if (playersError) throw playersError
 
           const playerMap = {}
-          ;(playersData || []).forEach(p => {
-            playerMap[p.player_id] = p
-          })
+            ; (playersData || []).forEach(p => {
+              playerMap[p.player_id] = p
+            })
 
           // Map to lineup format
           const bestXI = Object.values(positionPlayers).map(item => {

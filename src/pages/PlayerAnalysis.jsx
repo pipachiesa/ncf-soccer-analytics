@@ -25,34 +25,7 @@ function PlayerAnalysis() {
     return allPlayerStats.find(p => p.player?.toUpperCase() === selectedPlayer.toUpperCase())
   }, [allPlayerStats, selectedPlayer])
 
-  // Calculate additional stats for radar chart from events
-  const enhancedPlayerStats = useMemo(() => {
-    if (!selectedPlayerStats) return null
-    if (!playerEvents) return selectedPlayerStats
 
-    // Calculate stats from events
-    const duelsWon = playerEvents.filter(e =>
-      (e.event_type?.includes('Duel') || e.event_type === 'Tackle') && e.outcome === 'Won'
-    ).length
-
-    const recoveries = playerEvents.filter(e =>
-      ['Recovery', 'Interception'].includes(e.event_type)
-    ).length
-
-    const tackles = playerEvents.filter(e => e.event_type === 'Tackle').length
-
-    const aerialDuels = playerEvents.filter(e =>
-      e.event_type === 'Aerial Duel' || e.event_type === 'Header'
-    ).length
-
-    return {
-      ...selectedPlayerStats,
-      duels_won: duelsWon,
-      total_recoveries: recoveries,
-      tackles: tackles,
-      aerial_duels: aerialDuels
-    }
-  }, [selectedPlayerStats, playerEvents])
 
   // Set default player when data loads (player with most total_actions)
   useEffect(() => {
@@ -98,7 +71,7 @@ function PlayerAnalysis() {
 
       {/* Player Info Card */}
       <PlayerInfoCard
-        player={enhancedPlayerStats}
+        player={selectedPlayerStats}
         loading={playersLoading && !selectedPlayerStats}
       />
 
@@ -123,7 +96,7 @@ function PlayerAnalysis() {
         {/* Right - Radar Chart */}
         <div className="min-h-[300px]">
           <PlayerRadarChart
-            playerStats={enhancedPlayerStats}
+            playerStats={selectedPlayerStats}
             allPlayersStats={allPlayerStats}
           />
         </div>

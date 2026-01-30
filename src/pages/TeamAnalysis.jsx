@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import BigNumber from 'bignumber.js'
 import { useMatch } from '../App'
-import { useKPIStats } from '../hooks/useFetchData'
+import { useTeamStats } from '../hooks/useFetchData'
 import MatchSelector from '../components/MatchSelector'
 import LineupFormation from '../components/LineupFormation'
 import MetricBox from '../components/MetricBox'
-import TeamHeatmap from '../components/TeamHeatmap'
+import TacticalPitchCard from '../components/TeamAnalysis/TacticalPitchCard'
 
 // Metric configurations for the 6 boxes
 const METRICS_CONFIG = [
@@ -96,7 +96,7 @@ const METRICS_CONFIG = [
 
 function TeamAnalysis() {
   const { matchesLoading, selectedMatchId } = useMatch()
-  const { data: teamStats, loading, error } = useKPIStats(selectedMatchId)
+  const { data: teamStats, loading, error } = useTeamStats(selectedMatchId)
 
   // State for expanded metric card
   const [expandedCard, setExpandedCard] = useState(null)
@@ -173,9 +173,9 @@ function TeamAnalysis() {
         </div>
       </div>
 
-      {/* Heatmap Section */}
+      {/* Tactical Pitch Section */}
       <div className="w-full">
-        <TeamHeatmap />
+        <TacticalPitchCard matchId={selectedMatchId} />
       </div>
     </div>
   )
