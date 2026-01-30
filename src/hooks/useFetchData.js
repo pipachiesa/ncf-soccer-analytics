@@ -1167,9 +1167,7 @@ function calculateKPIsFromEvents(events) {
     e.outcome === 'Lost' ||
     e.outcome === 'Unsuccessful'
   )
-  const losses = lossEvents.length || events.filter(e =>
-    e.event_type === 'Pass' && e.outcome === 'Unsuccessful'
-  ).length
+  const losses = lossEvents.length
 
   // Dangerous losses (in own half or defensive third)
   const dangerous_losses = lossEvents.filter(e =>
@@ -1211,7 +1209,7 @@ function calculateKPIsFromEvents(events) {
   const blocks = events.filter(e => e.event_type === 'Block').length
 
   // Fouls committed
-  const fouls_committed = events.filter(e => e.event_type === 'Foul').length
+  const fouls_committed = events.filter(e => e.event_type === 'Foul Committed').length
 
   // Interceptions
   const interceptions = events.filter(e => e.event_type === 'Interception').length
@@ -1239,7 +1237,13 @@ function calculateKPIsFromEvents(events) {
     losses, dangerous_losses,
     recovery_loss_ratio,
 
-    // Defensive
+    // Defensive / Duels
+    defensive_duels, defensive_duels_won, defensive_duel_success,
+    aerial_duels, aerial_duels_won, aerial_win_rate,
+    tackles, tackles_won, tackle_success,
+    clearances, blocks, fouls_committed, interceptions,
+    duels_total, duels_won, duel_success_rate,
+
     total_events: events.length
   }
 }
