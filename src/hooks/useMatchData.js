@@ -248,3 +248,74 @@ export function useMatchLineups(matchId) {
 
     return { homeLineup, awayLineup, loading, error }
 }
+
+// Fetch rival/opponent lineup from rivals_lineups table
+export function useRivalsLineup(matchId) {
+    const [rivalLineup, setRivalLineup] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+
+    useEffect(() => {
+        async function fetchData() {
+            console.log('useRivalsLineup called with matchId:', matchId)
+
+            if (!matchId || matchId === 'all') {
+                setRivalLineup([])
+                setLoading(false)
+                return
+            }
+
+            try {
+                setLoading(true)
+
+                const { data: rivalsData, error: rivalsError } = await supabase
+                    .from('rivals_lineups')
+                    .select('*')
+                    .eq('match_id', matchId)
+
+                console.log('Rivals data fetched:', rivalsData, 'Error:', rivalsError)
+
+                if (rivalsError) throw rivalsError
+
+                if (!rivalsData || rivalsData.length === 0) {
+                    console.log('No rivals data found for matchId:', matchId)
+                    setRivalLineup([])
+                    setLoading(false)
+                    return
+                }
+
+                // Map to expected format for LineupsAndStatsRow
+                const formattedLineup = rivalsData.map((player, idx) => ({
+                    player_id: `rival_${matchId}_${idx}`,
+                    player_name: player.player_name || 'Unknown',
+                    position: player.position || '-',
+                    minutes: parseInt(player.min, 10) || 0,
+                    goals: parseInt(player.goals, 10) || 0,
+                    assists: parseInt(player.assists, 10) || 0,
+                    team: player.team
+                }))
+
+                // Sort by position: GK first, then DF, MF, FW
+                const positionOrder = { 'GK': 0, 'DF': 1, 'MF': 2, 'FW': 3 }
+                formattedLineup.sort((a, b) => {
+                    const orderA = positionOrder[a.position] ?? 4
+                    const orderB = positionOrder[b.position] ?? 4
+                    return orderA - orderB
+                })
+
+                console.log('Formatted rival lineup:', formattedLineup)
+                setRivalLineup(formattedLineup)
+
+            } catch (err) {
+                console.error('Error fetching rivals lineup:', err)
+                setError(err.message)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchData()
+    }, [matchId])
+
+    return { rivalLineup, loading, error }
+}

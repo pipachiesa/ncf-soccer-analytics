@@ -3,7 +3,7 @@ import Per90Toggle from '../components/Per90Toggle'
 import BigNumber from 'bignumber.js'
 import { Target, TrendingUp, Activity, Shield } from 'lucide-react'
 import { useTeamStats, useEvents } from '../hooks/useFetchData'
-import { useMatchInfo, useMatchStats, useMatchLineups } from '../hooks/useMatchData'
+import { useMatchInfo, useMatchStats, useMatchLineups, useRivalsLineup } from '../hooks/useMatchData'
 import { useMatch } from '../App'
 import MatchSelector from '../components/MatchSelector'
 import MatchInfoBox from '../components/Overview/MatchInfoBox'
@@ -61,7 +61,9 @@ function Overview() {
   // Match-specific data (only when single match selected)
   const { data: matchInfo, loading: matchInfoLoading } = useMatchInfo(selectedMatchId)
   const { data: matchStats, loading: matchStatsLoading } = useMatchStats(selectedMatchId)
-  const { homeLineup, awayLineup, loading: lineupsLoading } = useMatchLineups(selectedMatchId)
+  const { awayLineup, loading: lineupsLoading } = useMatchLineups(selectedMatchId)
+  const { rivalLineup, loading: rivalsLoading } = useRivalsLineup(selectedMatchId)
+  console.log('Overview - selectedMatchId:', selectedMatchId, 'rivalLineup:', rivalLineup)
   const { data: events, loading: eventsLoading } = useEvents(selectedMatchId)
 
   // State for display mode
@@ -242,7 +244,7 @@ function Overview() {
       {/* Lineups and Match Stats - Only for single match */}
       {!isAllGames && (
         <LineupsAndStatsRow
-          homeLineup={homeLineup}
+          homeLineup={rivalLineup}
           awayLineup={awayLineup}
           matchStats={matchStats}
           matchInfo={matchInfo}
