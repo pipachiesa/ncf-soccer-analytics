@@ -63,7 +63,6 @@ function Overview() {
   const { data: matchStats, loading: matchStatsLoading } = useMatchStats(selectedMatchId)
   const { awayLineup, loading: lineupsLoading } = useMatchLineups(selectedMatchId)
   const { rivalLineup, loading: rivalsLoading } = useRivalsLineup(selectedMatchId)
-  console.log('Overview - selectedMatchId:', selectedMatchId, 'rivalLineup:', rivalLineup)
   const { data: events, loading: eventsLoading } = useEvents(selectedMatchId)
 
   // State for display mode

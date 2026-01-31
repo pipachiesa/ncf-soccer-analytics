@@ -2,7 +2,6 @@ import React from 'react'
 import { Calendar, MapPin, Flag } from 'lucide-react'
 
 function MatchInfoBox({ matchInfo }) {
-    console.log('matchInfo', matchInfo)
     if (!matchInfo) return null
 
     // Parse score string "1-3" -> [1, 3]

@@ -257,8 +257,6 @@ export function useRivalsLineup(matchId) {
 
     useEffect(() => {
         async function fetchData() {
-            console.log('useRivalsLineup called with matchId:', matchId)
-
             if (!matchId || matchId === 'all') {
                 setRivalLineup([])
                 setLoading(false)
@@ -273,12 +271,9 @@ export function useRivalsLineup(matchId) {
                     .select('*')
                     .eq('match_id', matchId)
 
-                console.log('Rivals data fetched:', rivalsData, 'Error:', rivalsError)
-
                 if (rivalsError) throw rivalsError
 
                 if (!rivalsData || rivalsData.length === 0) {
-                    console.log('No rivals data found for matchId:', matchId)
                     setRivalLineup([])
                     setLoading(false)
                     return
@@ -303,7 +298,6 @@ export function useRivalsLineup(matchId) {
                     return orderA - orderB
                 })
 
-                console.log('Formatted rival lineup:', formattedLineup)
                 setRivalLineup(formattedLineup)
 
             } catch (err) {

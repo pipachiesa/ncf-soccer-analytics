@@ -12,7 +12,6 @@ export function useMatches() {
     async function fetchData() {
       try {
         setLoading(true)
-        console.log('8')
         const { data, error } = await supabase
           .from('matches')
           .select('*')
@@ -27,42 +26,6 @@ export function useMatches() {
     }
     fetchData()
   }, [])
-
-  return { data, loading, error }
-}
-
-// Match info for a specific match
-export function useMatchInfo(matchId) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    async function fetchData() {
-      // If "all" or no matchId, return null (handled by caller or not needed)
-      if (!matchId || matchId === 'all') {
-        setData(null)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        console.log('9')
-        const { data, error } = await supabase
-          .from('matches')
-          .select('*')
-          .eq('match_id', matchId)
-          .single()
-        if (error && error.code !== 'PGRST116') throw error
-        setData(data)
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [matchId])
 
   return { data, loading, error }
 }
@@ -368,7 +331,6 @@ export function useTeamStats(matchId) {
     async function fetchData() {
       try {
         setLoading(true)
-        console.log(`Fetching team_stats for matchId: ${matchId}`)
 
         // 1. Fetch base stats from team_stats (contains offensive stats)
         let query = supabase.from('team_stats').select('*')
@@ -378,8 +340,6 @@ export function useTeamStats(matchId) {
 
         const { data: teamStatsResult, error: teamError } = await query
         if (teamError && teamError.code !== 'PGRST116') throw teamError
-
-        console.log('team_stats result:', teamStatsResult)
 
         // 2. Fetch events to calculate derived stats (missing in team_stats)
         let allEvents = []
@@ -410,7 +370,6 @@ export function useTeamStats(matchId) {
         }
 
         const derivedStats = calculateDerivedStats(allEvents)
-        console.log('Calculated derived stats:', derivedStats)
 
         if (matchId === 'all') {
           // result is an array of stats from all matches
@@ -574,126 +533,6 @@ export function useEvents(matchId, filters = {}) {
   return { data, loading, error }
 }
 
-// Shots for a specific match
-export function useShots(matchId) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    async function fetchData() {
-      if (!matchId) return
-      try {
-        setLoading(true)
-
-        // Shots are usually fewer, but we'll paginate to be safe
-        let allData = []
-        let from = 0
-        const pageSize = 1000
-        let hasMore = true
-
-        while (hasMore) {
-          let query = supabase
-            .from('events')
-            .select('*, players(first_name, last_name)')
-            .eq('event_type', 'Shot')
-            .range(from, from + pageSize - 1)
-
-          if (matchId !== 'all') {
-            query = query.eq('match_id', matchId)
-          }
-
-          const { data: pageData, error } = await query.order('id', { ascending: true })
-          if (error) throw error
-
-          if (pageData && pageData.length > 0) {
-            allData = [...allData, ...pageData]
-            from += pageSize
-            hasMore = pageData.length === pageSize
-          } else {
-            hasMore = false
-          }
-        }
-
-        // Map player names
-        const mappedData = allData.map(event => ({
-          ...event,
-          player: event.players ? `${event.players.first_name} ${event.players.last_name}`.trim() : 'Unknown'
-        }))
-
-        setData(mappedData)
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [matchId])
-
-  return { data, loading, error }
-}
-
-// Zone pressure data
-export function useZonePressure(matchId) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    async function fetchData() {
-      if (!matchId) return
-      try {
-        setLoading(true)
-
-        // Paginate to get all defensive events
-        let allData = []
-        let from = 0
-        const pageSize = 1000
-        let hasMore = true
-
-        while (hasMore) {
-          let query = supabase
-            .from('events')
-            .select('zone_3x3')
-            .in('event_type', ['Defensive Duel', 'Tackle', 'Recovery', 'Interception'])
-            .range(from, from + pageSize - 1)
-
-          if (matchId !== 'all') {
-            query = query.eq('match_id', matchId)
-          }
-
-          const { data: pageData, error } = await query
-          if (error) throw error
-
-          if (pageData && pageData.length > 0) {
-            allData = [...allData, ...pageData]
-            from += pageSize
-            hasMore = pageData.length === pageSize
-          } else {
-            hasMore = false
-          }
-        }
-
-        // Count by zone
-        const zones = ['R1C1', 'R1C2', 'R1C3', 'R2C1', 'R2C2', 'R2C3', 'R3C1', 'R3C2', 'R3C3']
-        const counts = {}
-        zones.forEach(z => {
-          counts[z] = allData?.filter(e => e.zone_3x3 === z).length || 0
-        })
-        setData(counts)
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [matchId])
-
-  return { data, loading, error }
-}
-
 // Timeline data for charts
 export function useTimeline(matchId, interval = 5) {
   const [data, setData] = useState(null)
@@ -807,7 +646,6 @@ export function useTopPerformers(matchId) {
       if (!matchId) return
       try {
         setLoading(true)
-        console.log('1')
         let query = supabase.from('player_stats').select('*, players(first_name, last_name)')
 
         if (matchId !== 'all') {
@@ -851,185 +689,6 @@ export function useTopPerformers(matchId) {
   }, [matchId])
 
   return { data, loading, error }
-}
-
-// Fetch helper for match stats mini table
-export function useMatchStats(matchId) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    async function fetchData() {
-      if (!matchId || matchId === 'all') {
-        setData(null)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const { data, error } = await supabase
-          .from('match_stats')
-          .select('*')
-          .eq('match_id', matchId)
-          .single()
-
-        if (error && error.code !== 'PGRST116') throw error // PGRST116 is "No rows found"
-        setData(data)
-      } catch (err) {
-        // If table doesn't exist or other error, handle gracefully
-        console.error('Error fetching match_stats:', err)
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [matchId])
-
-  return { data, loading, error }
-}
-
-// Fetch lineups from match_lineups table with player stats
-export function useLineups(matchId) {
-  const [homeLineup, setHomeLineup] = useState([])
-  const [awayLineup, setAwayLineup] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchData() {
-      if (!matchId || matchId === 'all') {
-        setHomeLineup([])
-        setAwayLineup([])
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-
-        // Fetch lineups from match_lineups table
-        const { data: lineupsData, error: lineupsError } = await supabase
-          .from('match_lineups')
-          .select('*')
-          .eq('match_id', matchId)
-
-        if (lineupsError && lineupsError.code !== '42P01') {
-          throw lineupsError
-        }
-
-        if (!lineupsData || lineupsData.length === 0) {
-          setHomeLineup([])
-          setAwayLineup([])
-          setLoading(false)
-          return
-        }
-
-        // Get unique player IDs
-        const playerIds = lineupsData.map(l => l.player_id).filter(Boolean)
-
-        // Fetch player details
-        const { data: playersData } = await supabase
-          .from('players')
-          .select('*')
-          .in('player_id', playerIds)
-
-        // Fetch minutes played
-        const { data: minutesData } = await supabase
-          .from('player_min')
-          .select('*')
-          .eq('match_id', matchId)
-          .in('player_id', playerIds)
-
-        // Fetch ALL events for these players to count goals, assists, and cards
-        const { data: eventsData } = await supabase
-          .from('events')
-          .select('*')
-          .eq('match_id', matchId)
-          .in('player_id', playerIds)
-
-        // Create player stats map
-        const playerStatsMap = {}
-        if (eventsData) {
-          eventsData.forEach(e => {
-            const pid = e.player_id
-            if (!playerStatsMap[pid]) {
-              playerStatsMap[pid] = { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 }
-            }
-
-            // Count goals: Shot events with Goal outcome
-            if (e.event_type === 'Shot' && e.outcome === 'Goal') {
-              playerStatsMap[pid].goals += 1
-            }
-
-            // Count assists
-            if (e.outcome === 'Assist') {
-              playerStatsMap[pid].assists += 1
-            }
-
-            // Count yellow cards (check both outcome and dedicated field if exists)
-            if (e.outcome === 'Yellow Card' || e.yellow_card === true || e.card_type === 'Yellow') {
-              playerStatsMap[pid].yellow_cards += 1
-            }
-
-            // Count red cards
-            if (e.outcome === 'Red Card' || e.red_card === true || e.card_type === 'Red') {
-              playerStatsMap[pid].red_cards += 1
-            }
-          })
-        }
-
-        // Create minutes map
-        const minutesMap = {}
-        if (minutesData) {
-          minutesData.forEach(m => {
-            minutesMap[m.player_id] = m.minutes_played || 0
-          })
-        }
-
-        // Create players map
-        const playersMap = {}
-        if (playersData) {
-          playersData.forEach(p => {
-            playersMap[p.id] = p
-          })
-        }
-
-        // Map lineup data
-        const players = lineupsData.map(lineup => {
-          const player = playersMap[lineup.player_id]
-          const stats = playerStatsMap[lineup.player_id] || { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 }
-          const minutes = minutesMap[lineup.player_id] || 0
-
-          return {
-            id: lineup.player_id,
-            name: player ? `${player.first_name || ''} ${player.last_name || ''}`.trim() : 'Unknown',
-            number: player?.shirt_number || lineup.shirt_number || '-',
-            position: player?.position || lineup.position || '-',
-            minutes: minutes,
-            team_id: lineup.team_id || player?.team_id,
-            goals: stats.goals,
-            assists: stats.assists,
-            yellow_cards: stats.yellow_cards,
-            red_cards: stats.red_cards
-          }
-        })
-
-        const home = players.filter(p => p.team_id === 'NCF')
-        const away = players.filter(p => p.team_id !== 'NCF')
-
-        setHomeLineup(home)
-        setAwayLineup(away)
-
-      } catch (err) {
-        console.error("Error fetching lineups:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [matchId])
-
-  return { homeLineup, awayLineup, loading }
 }
 
 // Calculate all KPI stats from events table
