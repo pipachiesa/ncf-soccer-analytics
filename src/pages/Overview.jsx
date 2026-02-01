@@ -94,7 +94,6 @@ function Overview() {
     const per90Stats = { ...teamStats }
 
     // List of fields to divide by match count (count stats)
-    // Rate fields (accuracy, conversion) should NOT be divided
     const countFields = [
       'total_shots', 'goals', 'shots_on_target', 'xg_total', 'chances_created',
       'crosses', 'crosses_successful',
@@ -124,7 +123,6 @@ function Overview() {
     if (option.format) {
       return option.format(rawValue)
     }
-    // Format floats nicely if they have decimals
     if (typeof rawValue === 'number' && !Number.isInteger(rawValue) && rawValue !== 0) {
       return new BigNumber(rawValue).dp(1).toNumber()
     }
@@ -134,12 +132,6 @@ function Overview() {
   // Helper to get subtitle from stats based on option
   const getSubtitle = (stats, option) => {
     if (!stats) return ''
-
-    // If Per 90 mode is active, we might want to adjust subtitles too?
-    // For now, let's keep them as is (ratios/percentages are fine).
-    // But absolute counts in subtitles (e.g. "50 successful") might be misleading if we show per90.
-    // However, complexity vs value: let's leave it for now, 
-    // or we could apply the same division to the stats object passed to subtitle function.
 
     if (typeof option.subtitle === 'function') {
       return option.subtitle(stats)
@@ -185,7 +177,7 @@ function Overview() {
         </div>
       </div>
 
-      {/* Match Info Box - Full width, only for single match */}
+      {/* Match Info Box. Full width, only for single match */}
       {!isAllGames && (
         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
           <MatchInfoBox matchInfo={matchInfo} />

@@ -32,7 +32,7 @@ function PlayerAnalysis() {
     return position === 'goalkeeper' || position === 'gk'
   }, [selectedPlayerStats])
 
-  // Calculate GK stats from the same events used by the table (ensures consistency)
+  // Calculate GK stats from the same events used by the table
   const gkStats = useMemo(() => {
     if (!isGoalkeeper || !playerEvents || playerEvents.length === 0) return null
 

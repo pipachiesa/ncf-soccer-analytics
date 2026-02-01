@@ -15,14 +15,14 @@ const HEATMAP_OPTIONS = [
 
 // Color gradient for heatmap (green -> blue -> cyan -> yellow -> orange -> red)
 const GRADIENT_COLORS = [
-  { stop: 0.0, color: [0, 0, 0, 0] },       // Transparent
-  { stop: 0.1, color: [0, 0, 255, 0.4] },   // Blue
-  { stop: 0.25, color: [0, 255, 255, 0.6] }, // Cyan
-  { stop: 0.4, color: [0, 255, 0, 0.7] },   // Green
-  { stop: 0.55, color: [255, 255, 0, 0.8] }, // Yellow
-  { stop: 0.7, color: [255, 165, 0, 0.9] }, // Orange
-  { stop: 0.85, color: [255, 0, 0, 1] },    // Red
-  { stop: 1.0, color: [255, 0, 0, 1] },     // Red
+  { stop: 0.0, color: [0, 0, 0, 0] },
+  { stop: 0.1, color: [0, 0, 255, 0.4] },
+  { stop: 0.25, color: [0, 255, 255, 0.6] },
+  { stop: 0.4, color: [0, 255, 0, 0.7] },
+  { stop: 0.55, color: [255, 255, 0, 0.8] },
+  { stop: 0.7, color: [255, 165, 0, 0.9] },
+  { stop: 0.85, color: [255, 0, 0, 1] },
+  { stop: 1.0, color: [255, 0, 0, 1] },
 ]
 
 function ActivityHeatmap() {
@@ -79,7 +79,6 @@ function ActivityHeatmap() {
     const width = rect.width
     const height = rect.height
 
-    // Set canvas size
     canvas.width = width
     canvas.height = height
 
@@ -97,7 +96,7 @@ function ActivityHeatmap() {
 
     // Draw intensity circles (grayscale)
     heatmapData.forEach(point => {
-      // NORMALIZATION:
+      // NORMALIZATION OF COORDENATES (TO %):
       // X (%) = X_raw * 1.05 / 100
       // Y (%) = Y_raw * 0.95 / 100
 
@@ -130,13 +129,13 @@ function ActivityHeatmap() {
 
     // Map grayscale intensity to color gradient
     for (let i = 0; i < data.length; i += 4) {
-      const alpha = data[i + 3] / 255 // Use alpha as intensity
-      if (alpha > 0.02) { // Threshold to avoid noise
-        const color = getColorAtValue(Math.min(alpha * 1.5, 1)) // Boost intensity a bit
+      const alpha = data[i + 3] / 255
+      if (alpha > 0.02) {
+        const color = getColorAtValue(Math.min(alpha * 1.5, 1))
         output[i] = color[0]
         output[i + 1] = color[1]
         output[i + 2] = color[2]
-        output[i + 3] = Math.round(color[3] * 255 * 0.85) // Slightly transparent
+        output[i + 3] = Math.round(color[3] * 255 * 0.85)
       }
     }
 

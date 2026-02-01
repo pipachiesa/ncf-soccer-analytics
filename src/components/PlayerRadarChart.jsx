@@ -9,7 +9,7 @@ import {
 } from 'recharts'
 
 function PlayerRadarChart({ playerStats, allPlayersStats, isGoalkeeper, gkStats }) {
-  // Calculate normalized values (0-100) for radar chart
+  // Calculate normalized values for radar chart
   // Normalize based on max values across all players for fair comparison
   const getMaxValues = () => {
     if (!allPlayersStats || allPlayersStats.length === 0) {
@@ -52,9 +52,9 @@ function PlayerRadarChart({ playerStats, allPlayersStats, isGoalkeeper, gkStats 
     }
 
     // For GK stats, we normalize differently
-    // Saves: normalize against a reasonable max (e.g., 10 saves per match is excellent)
-    // Claims: normalize against a reasonable max (e.g., 5 claims per match)
-    // Punches: normalize against a reasonable max (e.g., 3 punches per match)
+    // Saves: normalize against a reasonable max (e.g. 10 saves per match is excellent)
+    // Claims: normalize against a reasonable max (e.g. 5 claims per match)
+    // Punches: normalize against a reasonable max (e.g. 3 punches per match)
     // Distribution: already a percentage
 
     const maxSaves = 10

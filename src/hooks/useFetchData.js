@@ -82,7 +82,7 @@ const calculatePlayerDerivedStats = (events) => {
       s.total_recoveries++
     }
 
-    // Consolidated Duels (including Tackles as per previous logic)
+    // Consolidated Duels
     if ((type && type.includes('Duel')) || type === 'Tackle') {
       s.duels_total++
       if (outcome === 'Won' || (type === 'Tackle' && outcome === 'Successful')) {
@@ -161,18 +161,14 @@ export function usePlayerStats(matchId) {
             player: stat.players ? `${stat.players.first_name} ${stat.players.last_name}`.trim() : 'Unknown',
             position: stat.players?.position,
             shirt_number: stat.players?.shirt_number,
-            ...derived // Merge derived stats
+            ...derived
           }
         })
-
-        // Also handle players who might have events but NO player_stats row? 
-        // (Unlikely if seeding is correct, but safer to stick to player_stats as base for roster)
 
         if (matchId === 'all') {
           // 1. Aggregate standard stats from player_stats by player_id
           const aggregated = {}
 
-          // Use rawData directly first, don't use mappedData which has derived stats merged incorrectly for this case
           rawData.forEach(stat => {
             const pid = stat.player_id
             if (!aggregated[pid]) {
@@ -350,7 +346,7 @@ export function useTeamStats(matchId) {
         while (hasMore) {
           let eventsQuery = supabase
             .from('events')
-            .select('*') // Select all for now to be safe with zone/outcome checks
+            .select('*')
             .range(from, from + pageSize - 1)
 
           if (matchId && matchId !== 'all') {
@@ -376,7 +372,7 @@ export function useTeamStats(matchId) {
           if (!teamStatsResult || teamStatsResult.length === 0) {
             setData(null)
           } else {
-            // Aggregate team_stats AND derived stats
+            // Aggregate team_stats and derived stats
             const agg = {
               // Base Metrics (from team_stats)
               total_shots: 0, goals: 0, shots_on_target: 0, xg_total: 0,
@@ -548,7 +544,7 @@ export function useTimeline(matchId, interval = 5) {
       try {
         setLoading(true)
 
-        // Paginate to get all events - fetch all columns to check for minute/minutes
+        // Paginate to get all events, fetch all columns to check for minute/minutes
         let allEvents = []
         let from = 0
         const pageSize = 1000
@@ -576,7 +572,6 @@ export function useTimeline(matchId, interval = 5) {
           }
         }
 
-        // Check which minute column exists (minute or minutes)
         const getMinute = (e) => {
           if (e.minute !== undefined && e.minute !== null) return e.minute
           if (e.minutes !== undefined && e.minutes !== null) return e.minutes
@@ -665,7 +660,6 @@ export function useTopPerformers(matchId) {
         let finalData = mappedData
 
         if (matchId === 'all') {
-          // Aggregate
           const aggregated = {}
           mappedData.forEach(stat => {
             const pid = stat.player_id
@@ -752,7 +746,7 @@ function calculateKPIsFromEvents(events) {
     return getEmptyKPIStats()
   }
 
-  // ==================== SHOTS METRICS ====================
+  // SHOTS METRICS 
   const shots = events.filter(e => e.event_type === 'Shot')
   const total_shots = shots.length
   const goals = shots.filter(e => e.outcome === 'Goal').length
@@ -778,7 +772,7 @@ function calculateKPIsFromEvents(events) {
   const shot_accuracy = total_shots > 0 ? new BigNumber(shots_on_target).dividedBy(total_shots).multipliedBy(100).dp(1).toNumber() : 0
   const conversion_rate = total_shots > 0 ? new BigNumber(goals).dividedBy(total_shots).multipliedBy(100).dp(1).toNumber() : 0
 
-  // ==================== PASS METRICS ====================
+  // PASS METRICS
   const passEvents = events.filter(e =>
     ['Pass', 'Long Pass', 'Short Pass', 'Through Pass', 'Cross'].includes(e.event_type)
   )
@@ -808,7 +802,7 @@ function calculateKPIsFromEvents(events) {
   // Assists
   const assists = events.filter(e => e.outcome === 'Assist').length
 
-  // ==================== RECOVERY METRICS ====================
+  // RECOVERY METRICS 
   const recoveryEvents = events.filter(e =>
     ['Recovery', 'Interception'].includes(e.event_type)
   )
@@ -835,7 +829,7 @@ function calculateKPIsFromEvents(events) {
 
   const recovery_loss_ratio = losses > 0 ? new BigNumber(total_recoveries).dividedBy(losses).dp(1).toNumber() : total_recoveries
 
-  // ==================== DEFENSIVE METRICS ====================
+  //  DEFENSIVE METRICS
   // Defensive duels
   const defensiveDuelEvents = events.filter(e => {
     const type = e.event_type?.toLowerCase() || ''
@@ -971,7 +965,7 @@ function calculateOutcomesFromEvents(events) {
     return getEmptyOutcomesData()
   }
 
-  // ==================== PASS OUTCOMES ====================
+  // PASS OUTCOMES 
   const passEvents = events.filter(e =>
     ['Pass', 'Long Pass', 'Short Pass', 'Through Pass', 'Cross'].includes(e.event_type)
   )
@@ -987,7 +981,7 @@ function calculateOutcomesFromEvents(events) {
   ).length
   const assists = events.filter(e => e.outcome === 'Assist').length
 
-  // ==================== SHOT OUTCOMES ====================
+  //  SHOT OUTCOMES 
   const shotEvents = events.filter(e => e.event_type === 'Shot')
   const goals = shotEvents.filter(e => e.outcome === 'Goal').length
   const shotsOnTarget = shotEvents.filter(e =>
@@ -998,7 +992,7 @@ function calculateOutcomesFromEvents(events) {
     e.outcome === 'Off Target' || e.outcome === 'Wide' || e.outcome === 'Over'
   ).length
 
-  // ==================== EVENT TYPES ====================
+  // EVENT TYPES 
   const totalPasses = passEvents.length
   const aerialDuels = events.filter(e =>
     e.event_type === 'Aerial Duel' || e.event_type === 'Header'
@@ -1023,7 +1017,7 @@ function calculateOutcomesFromEvents(events) {
     ['Recovery', 'Interception'].includes(e.event_type)
   ).length
 
-  // ==================== ZONES ====================
+  // ZONES 
   // Try to determine zone from zone_3x3 or pitch_zone
   const defensiveThird = events.filter(e =>
     e.zone_3x3?.startsWith('R1') || e.pitch_zone === 'Defensive Third'
@@ -1508,7 +1502,7 @@ export function usePlayerAllMatches(playerName) {
   return { data, loading, error }
 }
 
-// Get goalkeeper stats from events table (GK_Action events)
+// Get goalkeeper stats from events table
 export function useGoalkeeperStats(matchId, playerName) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)

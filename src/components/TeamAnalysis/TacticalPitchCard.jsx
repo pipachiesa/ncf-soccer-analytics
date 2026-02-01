@@ -55,7 +55,7 @@ function TacticalPitchCard({ matchId }) {
     const [isGlossaryOpen, setIsGlossaryOpen] = useState(false)
     const dropdownRef = useRef(null)
 
-    // Fetch ALL events for this match
+    // Fetch all events for this match
     // We don't filter by type efficiently here because we need "everything" to classify locally
     const { data: allEvents, loading, error } = useEvents(matchId)
 
@@ -88,7 +88,7 @@ function TacticalPitchCard({ matchId }) {
         // 1. Draw Base
         drawPitchBase(ctx, width, height)
 
-        // 2. Data Layer - Colors optimized for dark green pitch
+        // 2. Data Layer: Better colors for dark green pitch
         if (selectedViz.type === 'canvas') {
             const points = tacticalData[selectedViz.dataKey] || []
             // Shot Map Styling
@@ -129,20 +129,20 @@ function TacticalPitchCard({ matchId }) {
             const blk = tacticalData.blocks || []
 
             drawPoints(ctx, blk, width, height, { color: 'rgba(255,255,255,0.5)', radius: 4, shape: 'square' }) // Blocks
-            drawPoints(ctx, int, width, height, { color: '#22d3ee', radius: 4, shape: 'triangle' }) // Cyan-400 Int
-            drawPoints(ctx, rec, width, height, { color: '#facc15', radius: 5 }) // Yellow-400 Rec
+            drawPoints(ctx, int, width, height, { color: '#22d3ee', radius: 4, shape: 'triangle' })
+            drawPoints(ctx, rec, width, height, { color: '#facc15', radius: 5 })
         }
         else if (selectedViz.type === 'canvas_pressure') {
             const press = tacticalData.pressures || []
 
             if (press.length > 0) {
-                drawPoints(ctx, press, width, height, { color: '#f87171', radius: 5, alpha: 0.7 }) // Red-400 Pressure
+                drawPoints(ctx, press, width, height, { color: '#f87171', radius: 5, alpha: 0.7 })
             } else {
                 // Fallback to duels
                 const def = tacticalData.duels_defensive || []
                 const off = tacticalData.duels_offensive || []
-                drawPoints(ctx, def, width, height, { color: '#facc15', radius: 4 }) // Yellow-400
-                drawPoints(ctx, off, width, height, { color: '#22d3ee', radius: 4, shape: 'triangle' }) // Cyan-400
+                drawPoints(ctx, def, width, height, { color: '#facc15', radius: 4 })
+                drawPoints(ctx, off, width, height, { color: '#22d3ee', radius: 4, shape: 'triangle' })
             }
         }
         else if (selectedViz.type === 'grid' || selectedViz.type === 'grid_filtered') {
@@ -159,7 +159,7 @@ function TacticalPitchCard({ matchId }) {
                 const candidates = [
                     ...(tacticalData.shots || []),
                     ...(tacticalData.key_passes || []),
-                    ...(tacticalData.crosses_attempted || []), // attempted for broader view? User said "actions"
+                    ...(tacticalData.crosses_attempted || []),
                     ...(tacticalData.progressive_passes || [])
                 ]
                 // Filter to attacking third only
@@ -266,8 +266,8 @@ function TacticalPitchCard({ matchId }) {
                     <div className="relative w-full aspect-[105/68]">
                         <canvas
                             ref={canvasRef}
-                            width={840} // 105 * 8 for better resolution
-                            height={544} // 68 * 8 for better resolution
+                            width={840}
+                            height={544}
                             className="w-full h-full rounded-lg shadow-md"
                         />
 
@@ -341,15 +341,13 @@ function TacticalPitchCard({ matchId }) {
                             {VIZ_OPTIONS.map(opt => (
                                 <div
                                     key={opt.id}
-                                    className={`p-3 rounded-lg border transition-colors ${
-                                        selectedViz.id === opt.id
+                                    className={`p-3 rounded-lg border transition-colors ${selectedViz.id === opt.id
                                             ? 'bg-blue-50 border-blue-200'
                                             : 'bg-white border-gray-200'
-                                    }`}
+                                        }`}
                                 >
-                                    <div className={`font-medium text-sm ${
-                                        selectedViz.id === opt.id ? 'text-blue-700' : 'text-gray-800'
-                                    }`}>
+                                    <div className={`font-medium text-sm ${selectedViz.id === opt.id ? 'text-blue-700' : 'text-gray-800'
+                                        }`}>
                                         {opt.label}
                                     </div>
                                     <div className="text-xs text-gray-500 mt-1 leading-relaxed">

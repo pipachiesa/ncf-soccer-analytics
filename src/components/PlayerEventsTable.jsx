@@ -190,7 +190,7 @@ function PlayerEventsTable({ events, loading, isGoalkeeper, gkStats }) {
       // Show as ratio for distribution
       return `${event.successful}/${event.total}`
     }
-    // For saves, claims, punches - just show the count
+    // For saves, claims, punches; just show the count
     return event.total.toString()
   }
 
@@ -213,9 +213,8 @@ function PlayerEventsTable({ events, loading, isGoalkeeper, gkStats }) {
               <th className="text-left py-3 px-3 text-sm font-semibold text-gray-600 min-w-[80px]">Metric</th>
               {displayData.map((event) => (
                 <th key={event.eventType} className="text-center py-3 px-2 min-w-[80px]">
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                    isGoalkeeper ? 'bg-indigo-100 text-indigo-700' : getEventColor(event.eventType)
-                  }`}>
+                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${isGoalkeeper ? 'bg-indigo-100 text-indigo-700' : getEventColor(event.eventType)
+                    }`}>
                     {event.eventType}
                   </span>
                 </th>

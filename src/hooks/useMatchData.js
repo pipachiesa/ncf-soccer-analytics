@@ -142,7 +142,7 @@ export function useMatchLineups(matchId) {
                     minutesMap[m.player_id] = m.minutes_played || 0
                 })
 
-                // 5. Fetch events for goals/assists/cards
+                // 5. Fetch events for goals/assists
                 const { data: eventsData } = await supabase
                     .from('events')
                     .select('*')
@@ -193,9 +193,6 @@ export function useMatchLineups(matchId) {
                 // 7. Separate home/away based on match_info teams
                 // Assume if match_lineups has team info, use it; 
                 // Otherwise infer: check if player's team matches home_team/away_team
-                // For now, we'll need to determine by checking player records or assume all are NCF
-
-                // Simple approach: fetch players with team_id if available
                 const { data: playersWithTeam } = await supabase
                     .from('players')
                     .select('player_id, team_id')

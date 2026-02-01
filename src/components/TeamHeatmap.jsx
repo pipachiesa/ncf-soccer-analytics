@@ -39,14 +39,14 @@ const HEATMAP_OPTIONS = [
 
 // Color gradient for heatmap (green -> blue -> cyan -> yellow -> orange -> red)
 const GRADIENT_COLORS = [
-  { stop: 0.0, color: [0, 0, 0, 0] },       // Transparent
-  { stop: 0.1, color: [0, 0, 255, 0.4] },   // Blue
-  { stop: 0.25, color: [0, 255, 255, 0.6] }, // Cyan
-  { stop: 0.4, color: [0, 255, 0, 0.7] },   // Green
-  { stop: 0.55, color: [255, 255, 0, 0.8] }, // Yellow
-  { stop: 0.7, color: [255, 165, 0, 0.9] }, // Orange
-  { stop: 0.85, color: [255, 0, 0, 1] },    // Red
-  { stop: 1.0, color: [255, 0, 0, 1] },     // Red
+  { stop: 0.0, color: [0, 0, 0, 0] },
+  { stop: 0.1, color: [0, 0, 255, 0.4] },
+  { stop: 0.25, color: [0, 255, 255, 0.6] },
+  { stop: 0.4, color: [0, 255, 0, 0.7] },
+  { stop: 0.55, color: [255, 255, 0, 0.8] },
+  { stop: 0.7, color: [255, 165, 0, 0.9] },
+  { stop: 0.85, color: [255, 0, 0, 1] },
+  { stop: 1.0, color: [255, 0, 0, 1] },
 ]
 
 function TeamHeatmap() {
@@ -75,7 +75,7 @@ function TeamHeatmap() {
     setIsOpen(false)
   }
 
-  // Interpolate color from gradient
+  // Alter color from gradient
   const getColorAtValue = useCallback((value) => {
     for (let i = 0; i < GRADIENT_COLORS.length - 1; i++) {
       const curr = GRADIENT_COLORS[i]
@@ -119,9 +119,9 @@ function TeamHeatmap() {
     tempCanvas.height = height
     const tempCtx = tempCanvas.getContext('2d')
 
-    // Draw intensity circles (grayscale)
+    // Draw intensity circles
     heatmapData.forEach(point => {
-      // NORMALIZATION:
+      // NORMALIZATION FOR COORDINATES (%):
       // X (%) = X_raw * 1.05 / 100
       // Y (%) = Y_raw * 0.95 / 100
 
@@ -132,7 +132,7 @@ function TeamHeatmap() {
       const y = normalizedYPercent * height
 
       const intensity = point.count / maxVal
-      const radius = Math.max(40, 60 * intensity + 30) // Larger radius for smoother blending
+      const radius = Math.max(40, 60 * intensity + 30)
 
       const gradient = tempCtx.createRadialGradient(x, y, 0, x, y, radius)
       gradient.addColorStop(0, `rgba(0, 0, 0, ${intensity})`)
@@ -154,13 +154,13 @@ function TeamHeatmap() {
 
     // Map grayscale intensity to color gradient
     for (let i = 0; i < data.length; i += 4) {
-      const alpha = data[i + 3] / 255 // Use alpha as intensity
-      if (alpha > 0.02) { // Threshold to avoid noise
-        const color = getColorAtValue(Math.min(alpha * 1.5, 1)) // Boost intensity a bit
+      const alpha = data[i + 3] / 255
+      if (alpha > 0.02) {
+        const color = getColorAtValue(Math.min(alpha * 1.5, 1))
         output[i] = color[0]
         output[i + 1] = color[1]
         output[i + 2] = color[2]
-        output[i + 3] = Math.round(color[3] * 255 * 0.85) // Slightly transparent
+        output[i + 3] = Math.round(color[3] * 255 * 0.85)
       }
     }
 
@@ -230,8 +230,8 @@ function TeamHeatmap() {
                 key={option.key}
                 onClick={() => handleOptionSelect(option)}
                 className={`w-full text-left px-4 py-3 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg transition-colors ${selectedOption.key === option.key
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-700'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-700'
                   }`}
               >
                 <div className={`font-medium ${selectedOption.key === option.key ? 'text-blue-600' : 'text-gray-900'}`}>

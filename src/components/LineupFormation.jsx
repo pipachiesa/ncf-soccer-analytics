@@ -2,8 +2,6 @@ import { useMatchLineup } from '../hooks/useFetchData'
 
 // 5-2-1-2 Formation configuration
 // Positions use percentage coordinates (0-100) for x and y
-// x: 0 = left side, 100 = right side
-// y: 0 = attacking end (top), 100 = defensive end (bottom/goalkeeper)
 const LINEUP_CONFIG = {
   formation: '5-2-1-2',
   positions: [

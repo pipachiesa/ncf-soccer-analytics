@@ -66,7 +66,7 @@ function PlayerHeatmap({ events, title, showDropdown = false, compact = false })
   const processEventsToHeatmap = useCallback((eventsList) => {
     if (!eventsList || eventsList.length === 0) return []
 
-    const gridSize = 10 // 10x10 grid cells
+    const gridSize = 10
     const grid = {}
 
     eventsList.forEach(event => {
@@ -99,7 +99,7 @@ function PlayerHeatmap({ events, title, showDropdown = false, compact = false })
     return Object.values(grid)
   }, [])
 
-  // Interpolate color from gradient
+  // Alter color from gradient
   const getColorAtValue = useCallback((value) => {
     for (let i = 0; i < GRADIENT_COLORS.length - 1; i++) {
       const curr = GRADIENT_COLORS[i]
@@ -146,7 +146,7 @@ function PlayerHeatmap({ events, title, showDropdown = false, compact = false })
     const tempCtx = tempCanvas.getContext('2d')
 
     heatmapData.forEach(point => {
-      // Convert percentage (0-100) to pixel position
+      // Convert percentage to pixel position
       const x = (point.x / 100) * width
       const y = (point.y / 100) * height
 

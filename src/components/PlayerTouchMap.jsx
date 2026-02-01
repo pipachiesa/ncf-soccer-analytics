@@ -28,7 +28,7 @@ const EVENT_COLORS = {
   'Interception': '#6ee7b7',
   'Block': '#047857',
   'Clearance': '#a7f3d0',
-  // Losses - Red
+  // Losses = Red
   'Loss': '#ef4444',
   'Ball Lost': '#dc2626',
   // Duels
@@ -92,7 +92,7 @@ function PlayerTouchMap({ events, loading }) {
     let normX = parseFloat(x) || 0
     let normY = parseFloat(y) || 0
 
-    // Clamp to valid percentage range (0-100)
+    // Clamp to valid percentage range
     normX = Math.max(0, Math.min(100, normX))
     normY = Math.max(0, Math.min(100, normY))
 
