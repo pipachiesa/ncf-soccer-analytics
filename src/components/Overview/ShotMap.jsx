@@ -56,13 +56,6 @@ function ShotMap({ shots }) {
         const updateDimensions = () => {
             if (containerRef.current) {
                 const w = containerRef.current.clientWidth
-                // Vertical half pitch: Width=68m, Height=52.5m (or less for emphasis)
-                // Ratio: 68/52.5 = 1.29 (Width/Height)
-                // Canvas Height should be Width / 1.29
-
-                // However, user said "enfasis en el area", maybe we zoom in a bit more?
-                // Let's keep strict half pitch for data accuracy first.
-                // 68m width, 52.5m height
                 const h = w * (52.5 / 68)
                 setDimensions({ width: w, height: h })
             }
@@ -117,7 +110,7 @@ function ShotMap({ shots }) {
         // Goal Post (Top Center)
         const goalWidthM = 7.32
         const goalX = (width - (goalWidthM * scaleX)) / 2
-        // Draw goal slightly outside or on line? Usually on line.
+
         // Let's draw it just above the line
         ctx.beginPath()
         ctx.moveTo(goalX, 0)
@@ -178,8 +171,8 @@ function ShotMap({ shots }) {
             const rawY = parseFloat(shot.y)
 
             // Convert to percentage of field dimensions
-            // X: 0-105 -> 0-100% of pitch length (105 = goal line)
-            // Y: 0-100 -> 0-100% of pitch width (50 = center)
+            // X: 0-105 -> 0-100% of pitch length
+            // Y: already appears to be 0-100 scale
             let x_pct = (rawX / 105) * 100
             const y_pct = rawY  // Y already appears to be 0-100 scale
 
@@ -205,7 +198,7 @@ function ShotMap({ shots }) {
             const outcome = shot.outcome
             let color = '#999'
 
-            // Colors: Verde = gol, azul = on target, gris = blocked, red = off target, yellow = on the post
+            // Colors: greem = gol, blue = on target, grey = blocked, red = off target, yellow = on the post
             if (outcome === 'Goal') {
                 color = '#22c55e' // Green
             } else if (['Saved', 'On Target'].includes(outcome)) {

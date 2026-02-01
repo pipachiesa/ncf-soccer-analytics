@@ -1508,6 +1508,166 @@ export function usePlayerAllMatches(playerName) {
   return { data, loading, error }
 }
 
+// Get goalkeeper stats from events table (GK_Action events)
+export function useGoalkeeperStats(matchId, playerName) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!matchId || !playerName) {
+        setData(null)
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+
+        // Get player_id from players table
+        const { data: playerData, error: playerError } = await supabase
+          .from('players')
+          .select('player_id, first_name, last_name')
+
+        if (playerError) throw playerError
+
+        // Find player by name match
+        const player = playerData?.find(p => {
+          const fullName = `${p.first_name} ${p.last_name}`.trim().toUpperCase()
+          return fullName === playerName.toUpperCase()
+        })
+
+        if (!player) {
+          setData(null)
+          setLoading(false)
+          return
+        }
+
+        // Fetch all events for this goalkeeper
+        let allEvents = []
+        let from = 0
+        const pageSize = 1000
+        let hasMore = true
+
+        while (hasMore) {
+          let query = supabase
+            .from('events')
+            .select('*')
+            .eq('player_id', player.player_id)
+            .range(from, from + pageSize - 1)
+
+          if (matchId !== 'all') {
+            query = query.eq('match_id', matchId)
+          }
+
+          const { data: pageData, error: eventsError } = await query.order('id', { ascending: true })
+          if (eventsError) throw eventsError
+
+          if (pageData && pageData.length > 0) {
+            allEvents = [...allEvents, ...pageData]
+            from += pageSize
+            hasMore = pageData.length === pageSize
+          } else {
+            hasMore = false
+          }
+        }
+
+        // Calculate GK-specific stats
+        const gkStats = calculateGKStats(allEvents)
+        setData(gkStats)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [matchId, playerName])
+
+  return { data, loading, error }
+}
+
+// Helper function to calculate GK stats from events
+function calculateGKStats(events) {
+  if (!events || events.length === 0) {
+    return {
+      saves: 0,
+      claims: 0,
+      punches: 0,
+      distributionSuccess: 0,
+      distributionTotal: 0,
+      distributionRate: 0,
+      gkActions: [],
+      passesSuccessful: 0,
+      passesTotal: 0
+    }
+  }
+
+  // Filter GK Actions
+  const gkActions = events.filter(e => e.event_type === 'GK Action')
+
+  // Count by outcome
+  let saves = 0
+  let claims = 0
+  let punches = 0
+  let distributionSuccess = 0
+  let distributionUnsuccess = 0
+
+  gkActions.forEach(e => {
+    const outcome = (e.outcome || '').toLowerCase()
+
+    // Saves
+    if (outcome.includes('save') || outcome === 'saved') {
+      saves++
+    }
+    // Claims/Catches
+    else if (outcome.includes('claim') || outcome.includes('catch') || outcome.includes('caught') || outcome.includes('collected')) {
+      claims++
+    }
+    // Punches
+    else if (outcome.includes('punch')) {
+      punches++
+    }
+    // Distribution (GK throws, kicks)
+    else if (outcome.includes('distribution') || outcome.includes('throw') || outcome.includes('kick')) {
+      if (outcome.includes('success') || outcome.includes('accurate')) {
+        distributionSuccess++
+      } else if (outcome.includes('unsuccess') || outcome.includes('inaccurate')) {
+        distributionUnsuccess++
+      }
+    }
+  })
+
+  // Also count regular passes for distribution rate
+  const passes = events.filter(e =>
+    e.event_type === 'Pass' || e.event_type === 'Long Pass'
+  )
+  const passesSuccessful = passes.filter(e =>
+    ['Successful', 'Assist', 'Key Pass', 'Progressive Pass'].includes(e.outcome)
+  ).length
+  const passesTotal = passes.length
+
+  // Calculate distribution rate (combine GK distribution + regular passes)
+  const totalDistribution = distributionSuccess + distributionUnsuccess + passesTotal
+  const successfulDistribution = distributionSuccess + passesSuccessful
+  const distributionRate = totalDistribution > 0
+    ? Math.round((successfulDistribution / totalDistribution) * 100)
+    : 0
+
+  return {
+    saves,
+    claims,
+    punches,
+    distributionSuccess: successfulDistribution,
+    distributionTotal: totalDistribution,
+    distributionRate,
+    gkActions,
+    passesSuccessful,
+    passesTotal
+  }
+}
+
 // Return empty stats object
 function getEmptyKPIStats() {
   return {

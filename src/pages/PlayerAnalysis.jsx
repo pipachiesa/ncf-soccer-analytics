@@ -25,7 +25,54 @@ function PlayerAnalysis() {
     return allPlayerStats.find(p => p.player?.toUpperCase() === selectedPlayer.toUpperCase())
   }, [allPlayerStats, selectedPlayer])
 
+  // Check if the selected player is a goalkeeper
+  const isGoalkeeper = useMemo(() => {
+    if (!selectedPlayerStats) return false
+    const position = selectedPlayerStats.position?.toLowerCase() || ''
+    return position === 'goalkeeper' || position === 'gk'
+  }, [selectedPlayerStats])
 
+  // Calculate GK stats from the same events used by the table (ensures consistency)
+  const gkStats = useMemo(() => {
+    if (!isGoalkeeper || !playerEvents || playerEvents.length === 0) return null
+
+    const gkActions = playerEvents.filter(e => e.event_type === 'GK Action')
+    const passEvents = playerEvents.filter(e => e.event_type === 'Pass' || e.event_type === 'Long Pass')
+
+    let saves = 0
+    let claims = 0
+    let punches = 0
+
+    gkActions.forEach(e => {
+      const outcome = (e.outcome || '').toLowerCase()
+      if (outcome.includes('save') || outcome === 'saved') {
+        saves++
+      } else if (outcome.includes('claim') || outcome.includes('catch') || outcome.includes('caught') || outcome.includes('collected')) {
+        claims++
+      } else if (outcome.includes('punch')) {
+        punches++
+      }
+    })
+
+    // Distribution = passes
+    const passesTotal = passEvents.length
+    const passesSuccessful = passEvents.filter(e =>
+      ['Successful', 'Assist', 'Key Pass', 'Progressive Pass'].includes(e.outcome)
+    ).length
+
+    const distributionRate = passesTotal > 0
+      ? Math.round((passesSuccessful / passesTotal) * 100)
+      : 0
+
+    return {
+      saves,
+      claims,
+      punches,
+      distributionSuccess: passesSuccessful,
+      distributionTotal: passesTotal,
+      distributionRate
+    }
+  }, [isGoalkeeper, playerEvents])
 
   // Set default player when data loads (player with most total_actions)
   useEffect(() => {
@@ -98,6 +145,8 @@ function PlayerAnalysis() {
           <PlayerRadarChart
             playerStats={selectedPlayerStats}
             allPlayersStats={allPlayerStats}
+            isGoalkeeper={isGoalkeeper}
+            gkStats={gkStats}
           />
         </div>
       </div>
@@ -114,6 +163,8 @@ function PlayerAnalysis() {
       <PlayerEventsTable
         events={playerEvents}
         loading={eventsLoading}
+        isGoalkeeper={isGoalkeeper}
+        gkStats={gkStats}
       />
     </div>
   )

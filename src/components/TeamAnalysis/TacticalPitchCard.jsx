@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { ChevronDown, Info } from 'lucide-react'
+import { ChevronDown, Info, BookOpen } from 'lucide-react'
 import { useEvents } from '../../hooks/useFetchData'
 import { buildTacticalEvents, computeZoneControl, computeTerritoryByThirds } from '../../utils/tacticalMapping'
 import { drawPitchBase, drawPoints, drawArrows, drawGridHeatmap } from '../../utils/canvasUtils'
@@ -52,6 +52,7 @@ const VIZ_OPTIONS = [
 function TacticalPitchCard({ matchId }) {
     const [selectedViz, setSelectedViz] = useState(VIZ_OPTIONS[0])
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+    const [isGlossaryOpen, setIsGlossaryOpen] = useState(false)
     const dropdownRef = useRef(null)
 
     // Fetch ALL events for this match
@@ -161,11 +162,8 @@ function TacticalPitchCard({ matchId }) {
                     ...(tacticalData.crosses_attempted || []), // attempted for broader view? User said "actions"
                     ...(tacticalData.progressive_passes || [])
                 ]
-                // Filter x > 0.70 normalized (0.7 * 1.05 = 0.735 approx)
+                // Filter to attacking third only
                 source = candidates.filter(e => {
-                    // e.x_norm is already present? No, buildTacticalEvents adds it?
-                    // Let's re-normalize or check buildTacticalEvents.
-                    // YES, buildTacticalEvents returns objects with x_norm.
                     return e.x_norm > (1.05 * 0.66) // Attacking third
                 })
             }
@@ -239,7 +237,7 @@ function TacticalPitchCard({ matchId }) {
                     </div>
                 )}
 
-                {/* Canvas or Chart Rendering */}
+                {/* Chart Rendering */}
                 {(selectedViz.type.startsWith('chart')) ? (
                     <div className="w-full flex items-center justify-center">
                         {chartData ? (
@@ -322,6 +320,46 @@ function TacticalPitchCard({ matchId }) {
                     </div>
                 )}
 
+            </div>
+
+            {/* Glossary Section */}
+            <div className="border-t border-gray-100">
+                <button
+                    onClick={() => setIsGlossaryOpen(!isGlossaryOpen)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        <BookOpen size={16} />
+                        <span className="font-medium">Visualization Glossary</span>
+                    </div>
+                    <ChevronDown size={16} className={`transform transition-transform ${isGlossaryOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isGlossaryOpen && (
+                    <div className="px-4 pb-4 bg-gray-50 border-t border-gray-100">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
+                            {VIZ_OPTIONS.map(opt => (
+                                <div
+                                    key={opt.id}
+                                    className={`p-3 rounded-lg border transition-colors ${
+                                        selectedViz.id === opt.id
+                                            ? 'bg-blue-50 border-blue-200'
+                                            : 'bg-white border-gray-200'
+                                    }`}
+                                >
+                                    <div className={`font-medium text-sm ${
+                                        selectedViz.id === opt.id ? 'text-blue-700' : 'text-gray-800'
+                                    }`}>
+                                        {opt.label}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1 leading-relaxed">
+                                        {opt.description}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )
