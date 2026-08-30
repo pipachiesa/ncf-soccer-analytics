@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.repository_owner == 'pipachiesa'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -31,10 +32,10 @@ jobs:
         run: npm run build
         env:
           GITHUB_PAGES: "true"
-          NEXT_PUBLIC_BASE_PATH: /ncf_isp
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SITE_URL: https://saa-j.github.io/ncf_isp
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
