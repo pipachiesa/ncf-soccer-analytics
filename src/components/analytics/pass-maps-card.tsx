@@ -1,7 +1,7 @@
 "use client";
 
 import { ChartNoAxesCombined, Maximize2, X } from "lucide-react";
-import { useState, type SVGProps } from "react";
+import { useEffect, useState, type SVGProps } from "react";
 
 import { PassArrow, Pitch, PitchGrid, useVizTooltip, type PitchGridItem } from "@/components/viz";
 import { usePassEvents, type AnalyticsScope } from "@/hooks/use-analytics-data";
@@ -138,6 +138,19 @@ export function PassMapsCard({
   const accuracy = passes.length ? Math.round((completed / passes.length) * 1000) / 10 : 0;
   const selectedGroup = groups[0];
 
+  useEffect(() => {
+    if (!expandedGroup) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setExpandedGroup(null);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [expandedGroup]);
+
   const gridItems: PitchGridItem[] = groups.map((group) => ({
     id: group.playerId,
     title: `${group.shirtNumber !== null ? `#${group.shirtNumber} · ` : ""}${group.name}`,
@@ -211,7 +224,15 @@ export function PassMapsCard({
                 ) : null}
               </div>
             </div>
-            <div className="relative rounded-md border border-border bg-[var(--pitch-bg)] p-2 sm:p-3">
+            <div
+              className={`relative rounded-md border border-border bg-[var(--pitch-bg)] p-2 sm:p-3 ${selectedGroup ? "cursor-zoom-in transition hover:border-accent" : ""}`}
+              onClick={() => selectedGroup && setExpandedGroup(selectedGroup)}
+              onKeyDown={(event) => {
+                if (selectedGroup && (event.key === "Enter" || event.key === " ")) setExpandedGroup(selectedGroup);
+              }}
+              role={selectedGroup ? "button" : undefined}
+              tabIndex={selectedGroup ? 0 : undefined}
+            >
               <Pitch className="mx-auto block h-auto w-full max-w-3xl">
                 <Passes bind={tooltip.bind} passes={selectedGroup?.passes ?? []} />
               </Pitch>
@@ -235,8 +256,8 @@ export function PassMapsCard({
         {tooltip.overlay}
       </div>
       {expandedGroup ? (
-        <div aria-modal="true" className="fixed inset-0 z-[80] grid place-items-center bg-black/75 p-3 sm:p-8" role="dialog">
-          <div className="max-h-[94vh] w-full max-w-6xl overflow-auto rounded-md border border-border bg-panel shadow-2xl">
+        <div aria-modal="true" className="fixed inset-0 z-[80] grid place-items-center bg-black/75 p-3 backdrop-blur-sm sm:p-8" onClick={() => setExpandedGroup(null)} role="dialog">
+          <div className="max-h-[94vh] w-full max-w-6xl overflow-auto rounded-md border border-border bg-panel shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-panel px-4 py-3">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-wider text-accent">Expanded pass map</p>

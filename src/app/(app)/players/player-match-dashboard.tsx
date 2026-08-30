@@ -1,7 +1,9 @@
 "use client";
 
-import { type ReactNode, useMemo } from "react";
+import { Maximize2, X } from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { HeatmapCard } from "@/components/analytics/heatmap-card";
 import {
   mapPitchCoordinates,
   PassArrow,
@@ -43,8 +45,11 @@ export function PlayerMatchDashboard({
         <DefensivePanel events={events} loading={loading} />
         <ShotsPanel events={events} loading={loading} />
       </section>
+      <section className="mt-4">
+        <HeatmapCard events={events} large loading={loading} title="Player Heatmap" />
+      </section>
       <article className="mt-4 overflow-hidden rounded-md border border-border bg-panel">
-        <PanelTitle number="05" title="PLAYER RADAR" />
+        <PanelTitle number="06" title="PLAYER RADAR" />
         <PlayerRadar loading={loading} playerEvents={events} teamEvents={teamEvents} />
       </article>
     </>
@@ -210,26 +215,94 @@ function ShotsPanel({ events, loading }: PanelProps) {
 type PanelProps = { events: AnalyticsEvent[]; loading: boolean };
 
 function DashboardPanel({ number, title, loading, empty, emptyLabel, children }: { number: string; title: string; loading: boolean; empty: boolean; emptyLabel: string; children: ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setExpanded(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [expanded]);
+
   return (
-    <article className="overflow-hidden rounded-md border border-border bg-panel">
-      <PanelTitle number={number} title={title} />
-      <div className={`relative bg-elevated/30 p-3 ${loading ? "animate-pulse opacity-50" : ""}`}>
-        {children}
-        {!loading && empty ? (
-          <div className="pointer-events-none absolute inset-x-3 top-3 grid aspect-[110/70] place-items-center">
-            <span className="rounded border border-border bg-panel/90 px-2.5 py-1.5 text-[10px] font-bold text-muted">{emptyLabel}</span>
+    <>
+      <article className={`group overflow-hidden rounded-md border border-border bg-panel transition hover:border-accent ${expanded ? "invisible" : ""}`}>
+        <PanelTitle number={number} onExpand={() => setExpanded(true)} title={title} />
+        <div
+          aria-label={`Expand ${title.toLowerCase()} map`}
+          className={`relative cursor-zoom-in bg-elevated/30 p-3 ${loading ? "animate-pulse opacity-50" : ""}`}
+          onClick={() => !loading && setExpanded(true)}
+          onKeyDown={(event) => {
+            if (!loading && (event.key === "Enter" || event.key === " ")) setExpanded(true);
+          }}
+          role="button"
+          tabIndex={loading ? -1 : 0}
+        >
+          {children}
+          {!loading ? (
+            <span className="pointer-events-none absolute top-5 right-5 inline-flex items-center gap-1 rounded-sm border border-border bg-panel/90 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-muted opacity-0 shadow transition group-hover:opacity-100">
+              <Maximize2 className="size-3" /> Enlarge
+            </span>
+          ) : null}
+          {!loading && empty ? (
+            <div className="pointer-events-none absolute inset-x-3 top-3 grid aspect-[110/70] place-items-center">
+              <span className="rounded border border-border bg-panel/90 px-2.5 py-1.5 text-[10px] font-bold text-muted">{emptyLabel}</span>
+            </div>
+          ) : null}
+        </div>
+      </article>
+      {expanded ? (
+        <div
+          aria-label={`${title} expanded view`}
+          aria-modal="true"
+          className="fixed inset-0 z-[90] grid place-items-center bg-black/80 p-3 backdrop-blur-sm sm:p-8"
+          onClick={() => setExpanded(false)}
+          role="dialog"
+        >
+          <div className="max-h-[94vh] w-full max-w-6xl overflow-auto rounded-md border border-border bg-panel shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-panel px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black text-accent">{number}</span>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-accent">Expanded player map</p>
+                  <h2 className="text-sm font-black uppercase tracking-wider text-foreground">{title}</h2>
+                </div>
+              </div>
+              <button aria-label={`Close ${title.toLowerCase()} map`} className="grid size-10 place-items-center rounded-sm border border-border text-muted hover:border-accent hover:text-accent" onClick={() => setExpanded(false)} type="button">
+                <X className="size-4" />
+              </button>
+            </header>
+            <div className="relative bg-elevated/30 p-4 sm:p-7">
+              {children}
+              {!loading && empty ? (
+                <div className="pointer-events-none absolute inset-x-7 top-7 grid aspect-[110/70] place-items-center">
+                  <span className="rounded border border-border bg-panel/90 px-3 py-2 text-sm font-bold text-muted">{emptyLabel}</span>
+                </div>
+              ) : null}
+            </div>
           </div>
-        ) : null}
-      </div>
-    </article>
+        </div>
+      ) : null}
+    </>
   );
 }
 
-function PanelTitle({ number, title }: { number: string; title: string }) {
+function PanelTitle({ number, title, onExpand }: { number: string; title: string; onExpand?: () => void }) {
   return (
     <header className="flex items-center gap-2 border-b border-border px-3 py-3">
       <span className="text-base font-black text-accent">{number}</span>
-      <h2 className="text-[10px] font-black uppercase tracking-[0.14em] text-foreground">{title}</h2>
+      <h2 className="flex-1 text-[10px] font-black uppercase tracking-[0.14em] text-foreground">{title}</h2>
+      {onExpand ? (
+        <button aria-label={`Enlarge ${title.toLowerCase()}`} className="grid size-7 place-items-center rounded-sm border border-border text-muted hover:border-accent hover:text-accent" onClick={onExpand} type="button">
+          <Maximize2 className="size-3.5" />
+        </button>
+      ) : null}
     </header>
   );
 }

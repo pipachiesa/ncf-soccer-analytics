@@ -9,6 +9,8 @@ import type { AnalyticsEvent } from "@/lib/analytics";
 type HeatmapCardProps = {
   events: AnalyticsEvent[];
   loading: boolean;
+  large?: boolean;
+  title?: string;
 };
 
 type EventFilter = "touches" | "passes" | "defensive" | "recoveries" | "losses";
@@ -80,7 +82,7 @@ function gridCellOpacity(count: number, maximum: number) {
   return 0.12 + Math.pow(count / maximum, 0.7) * 0.65;
 }
 
-export function HeatmapCard({ events, loading }: HeatmapCardProps) {
+export function HeatmapCard({ events, loading, large = false, title = "Heatmap" }: HeatmapCardProps) {
   const [filter, setFilter] = useState<EventFilter>("touches");
   const [mode, setMode] = useState<ViewMode>("intensity");
 
@@ -125,7 +127,7 @@ export function HeatmapCard({ events, loading }: HeatmapCardProps) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-accent">Analysis</p>
-            <h2 className="mt-0.5 text-sm font-bold text-foreground">Heatmap</h2>
+            <h2 className={`mt-0.5 font-bold text-foreground ${large ? "text-lg" : "text-sm"}`}>{title}</h2>
           </div>
           <Flame aria-hidden="true" className="size-4 text-muted" />
         </div>
@@ -164,7 +166,7 @@ export function HeatmapCard({ events, loading }: HeatmapCardProps) {
 
       <div className="bg-elevated/30 p-3 sm:p-4">
         <div className="relative rounded-md border border-border bg-[var(--pitch-bg)] p-2 sm:p-3">
-          <Pitch className={`mx-auto block h-auto w-full max-w-2xl ${loading ? "animate-pulse opacity-50" : ""}`}>
+          <Pitch className={`mx-auto block h-auto w-full ${large ? "max-w-5xl" : "max-w-2xl"} ${loading ? "animate-pulse opacity-50" : ""}`}>
             {mode === "intensity" ? (
               <HeatCells cells={cells} maximum={maximumCell} />
             ) : (
