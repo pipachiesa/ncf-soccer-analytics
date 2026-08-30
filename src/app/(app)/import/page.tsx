@@ -1,9 +1,18 @@
-import { requireRole } from "@/lib/auth";
+"use client";
 
+import { useEffect } from "react";
+
+import { useAuth } from "@/components/auth/auth-provider";
+import { withBasePath } from "@/lib/base-path";
 import { ImportClient } from "./import-client";
 
-export default async function ImportPage() {
-  await requireRole(["importer", "admin"]);
+export default function ImportPage() {
+  const { profile } = useAuth();
+  const allowed = profile.role === "importer" || profile.role === "admin";
+  useEffect(() => {
+    if (!allowed) window.location.replace(withBasePath("/"));
+  }, [allowed]);
+  if (!allowed) return null;
 
   return (
     <div className="mx-auto w-full max-w-7xl px-6 py-10">

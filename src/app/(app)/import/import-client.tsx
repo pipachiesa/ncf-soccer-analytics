@@ -11,6 +11,7 @@ import {
 } from "@/lib/event-import";
 
 import { importEventRows, type ImportResult } from "./actions";
+import { withBasePath } from "@/lib/base-path";
 
 export function ImportClient() {
   const [fileName, setFileName] = useState("");
@@ -95,7 +96,7 @@ export function ImportClient() {
             </p>
           </div>
           <a
-            href="/templates/events_template.csv"
+            href={withBasePath("/templates/events_template.csv")}
             download
             className="text-sm font-medium text-foreground underline decoration-accent decoration-2 underline-offset-4"
           >

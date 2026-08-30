@@ -1,9 +1,7 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-
-import { requireRole, type ProfileRole } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import type { ProfileRole } from "@/lib/auth-types";
+import { createClient } from "@/lib/supabase/client";
 
 export type UpdateRoleState = {
   status: "idle" | "success" | "error";
@@ -18,7 +16,11 @@ export async function updateProfileRole(
   _previousState: UpdateRoleState,
   formData: FormData,
 ): Promise<UpdateRoleState> {
-  const currentProfile = await requireRole(["admin"]);
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Your session has expired." };
+  const { data: currentProfile } = await supabase.from("profiles").select("id, role").eq("id", user.id).single();
+  if (currentProfile?.role !== "admin") return { status: "error", message: "Admin access is required." };
 
   const profileId = formData.get("profileId");
   const role = formData.get("role");
@@ -39,7 +41,6 @@ export async function updateProfileRole(
     };
   }
 
-  const supabase = await createClient();
   const { error } = await supabase
     .from("profiles")
     .update({ role })
@@ -48,9 +49,6 @@ export async function updateProfileRole(
   if (error) {
     return { status: "error", message: error.message };
   }
-
-  revalidatePath("/admin");
-  revalidatePath("/", "layout");
 
   return { status: "success", message: `Role updated to ${role}.` };
 }

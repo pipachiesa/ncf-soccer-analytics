@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useActionState, useRef, useState } from "react";
+import { type FormEvent, useActionState, useEffect, useRef, useState } from "react";
 
 import {
   updateProfileRole,
@@ -27,6 +27,12 @@ export function RoleForm({
   );
   const [selectedRole, setSelectedRole] = useState(currentRole);
   const confirmationRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (state.status !== "success") return;
+    const timer = window.setTimeout(() => window.location.reload(), 700);
+    return () => window.clearTimeout(timer);
+  }, [state.status]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     if (!isSelf || currentRole !== "admin" || selectedRole === "admin") return;

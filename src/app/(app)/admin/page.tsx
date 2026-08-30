@@ -1,24 +1,45 @@
-import { requireRole } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { useAuth } from "@/components/auth/auth-provider";
+import { withBasePath } from "@/lib/base-path";
+import { createClient } from "@/lib/supabase/client";
 
 import { ProfileTable, type AdminProfile } from "./profile-table";
 
-export default async function AdminPage() {
-  const currentProfile = await requireRole(["admin"]);
+export default function AdminPage() {
+  const { profile: currentProfile } = useAuth();
+  const [profiles, setProfiles] = useState<AdminProfile[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const allowed = currentProfile.role === "admin";
 
-  const supabase = await createClient();
-  const { data: profiles, error } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, role, created_at")
-    .order("email", { ascending: true });
-  const roleCounts = (profiles ?? []).reduce(
+  useEffect(() => {
+    if (!allowed) {
+      window.location.replace(withBasePath("/"));
+      return;
+    }
+    async function load() {
+      const { data, error: queryError } = await createClient().from("profiles").select("id, email, full_name, role, created_at").order("email", { ascending: true });
+      setProfiles((data ?? []) as AdminProfile[]);
+      setError(queryError?.message ?? null);
+      setLoading(false);
+    }
+    void load();
+  }, [allowed]);
+
+  const roleCounts = useMemo(() => profiles.reduce(
     (counts, profile) => {
       const role = profile.role as "admin" | "importer" | "viewer";
       if (role in counts) counts[role] += 1;
       return counts;
     },
     { admin: 0, importer: 0, viewer: 0 },
-  );
+  ), [profiles]);
+
+  if (!allowed) return null;
+  if (loading) return <div className="grid min-h-80 place-items-center text-sm font-semibold text-muted">Loading users…</div>;
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-5 lg:px-6">
@@ -42,10 +63,10 @@ export default async function AdminPage() {
 
       {error ? (
         <div className="rounded-md border border-pass-fail bg-panel px-4 py-3 text-sm text-pass-fail">
-          Unable to load profiles: {error.message}
+          Unable to load profiles: {error}
         </div>
       ) : (
-        <ProfileTable currentProfileId={currentProfile.id} profiles={(profiles ?? []) as AdminProfile[]} />
+        <ProfileTable currentProfileId={currentProfile.id} profiles={profiles} />
       )}
     </div>
   );

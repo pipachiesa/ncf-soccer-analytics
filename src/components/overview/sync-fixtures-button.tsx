@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
-import { syncFixtures, type SyncFixturesResult } from "@/app/(app)/actions/fixtures";
+import { createClient } from "@/lib/supabase/client";
 
-export function SyncFixturesButton() {
-  const router = useRouter();
+type SyncFixturesResult = {
+  inserted: number;
+  updated: number;
+  total: number;
+};
+
+export function SyncFixturesButton({ onSynced }: { onSynced?: () => void | Promise<void> }) {
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<SyncFixturesResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,9 +22,11 @@ export function SyncFixturesButton() {
 
     startTransition(async () => {
       try {
-        const syncResult = await syncFixtures();
-        setResult(syncResult);
-        router.refresh();
+        const { data, error: invokeError } = await createClient().functions.invoke<SyncFixturesResult>("sync-fixtures");
+        if (invokeError) throw invokeError;
+        if (!data) throw new Error("Fixture sync returned no result.");
+        setResult(data);
+        await onSynced?.();
       } catch (syncError) {
         setError(syncError instanceof Error ? syncError.message : "Fixture sync failed.");
       }

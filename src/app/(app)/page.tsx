@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -12,8 +15,8 @@ import {
 
 import { CalendarWidget } from "@/components/overview/calendar-widget";
 import { SyncFixturesButton } from "@/components/overview/sync-fixtures-button";
-import { getCurrentProfile } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { useAuth } from "@/components/auth/auth-provider";
+import { createClient } from "@/lib/supabase/client";
 
 type MatchRow = {
   match_id: number;
@@ -80,18 +83,30 @@ function opponentInitials(opponent: string) {
     .toUpperCase();
 }
 
-export default async function Home() {
-  const profile = await getCurrentProfile();
-  const supabase = await createClient();
+export default function Home() {
+  const { profile } = useAuth();
+  const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const today = todayInNewYork();
-  const { data, error } = await supabase
-    .from("matches")
-    .select(
-      "match_id, date, kickoff_time, opponent, home_away, competition, venue, status, score_for, score_against",
-    )
-    .order("date", { ascending: true })
-    .order("kickoff_time", { ascending: true, nullsFirst: false });
-  const matches = (data as MatchRow[] | null) ?? [];
+
+  async function loadMatches() {
+    const { data, error: queryError } = await createClient()
+      .from("matches")
+      .select("match_id, date, kickoff_time, opponent, home_away, competition, venue, status, score_for, score_against")
+      .order("date", { ascending: true })
+      .order("kickoff_time", { ascending: true, nullsFirst: false });
+    setMatches((data as MatchRow[] | null) ?? []);
+    setError(queryError?.message ?? null);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadMatches(), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (loading) return <div className="grid min-h-80 place-items-center text-sm font-semibold text-muted">Loading fixtures…</div>;
   const upcoming = matches.filter(
     (match) => match.status === "upcoming" && match.date >= today,
   );
@@ -100,14 +115,14 @@ export default async function Home() {
     .sort((a, b) => b.date.localeCompare(a.date));
   const nextMatch = upcoming[0] ?? null;
   const latestResult = played[0] ?? null;
-  const canManage = profile?.role === "admin" || profile?.role === "importer";
+  const canManage = profile.role === "admin" || profile.role === "importer";
   const calendarStart = nextMatch?.date ?? latestResult?.date ?? today;
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-5 lg:px-6">
       {error ? (
         <div className="mb-4 rounded-md border border-pass-fail bg-panel px-4 py-3 text-sm text-pass-fail">
-          Fixtures could not be loaded: {error.message}
+          Fixtures could not be loaded: {error}
         </div>
       ) : null}
 
@@ -166,7 +181,7 @@ export default async function Home() {
               </ActionLink>
               {canManage ? (
                 <>
-                  <SyncFixturesButton />
+                  <SyncFixturesButton onSynced={loadMatches} />
                   <ActionLink href="/import" icon={<Upload className="size-4" />} accent>
                     Import Events
                   </ActionLink>

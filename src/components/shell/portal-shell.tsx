@@ -13,9 +13,10 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { signOut } from "@/app/(app)/actions";
 import { useTheme } from "@/hooks/use-theme";
-import type { CurrentProfile } from "@/lib/auth";
+import type { CurrentProfile } from "@/lib/auth-types";
+import { withBasePath } from "@/lib/base-path";
+import { createClient } from "@/lib/supabase/client";
 
 export type UpcomingMatch = {
   opponent: string;
@@ -66,6 +67,11 @@ export function PortalShell({
     SECTION_LABELS.find(({ prefix }) => pathname.startsWith(prefix))?.label ??
     "Overview";
   const canImport = profile.role === "importer" || profile.role === "admin";
+
+  async function handleSignOut() {
+    await createClient().auth.signOut();
+    window.location.replace(withBasePath("/login/"));
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -166,15 +172,16 @@ export function PortalShell({
               <div className="absolute top-[calc(100%+8px)] right-0 z-50 w-64 rounded-md border border-border bg-panel p-3 shadow-xl">
                 <p className="truncate text-sm font-medium text-foreground">{profile.email}</p>
                 <p className="mt-1 text-xs capitalize text-muted">{profile.role} access</p>
-                <form action={signOut} className="mt-3 border-t border-border pt-3">
+                <div className="mt-3 border-t border-border pt-3">
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleSignOut}
                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-elevated hover:text-accent"
                   >
                     <LogOut className="size-4" />
                     Sign out
                   </button>
-                </form>
+                </div>
               </div>
             </details>
           </div>

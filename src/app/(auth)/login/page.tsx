@@ -11,6 +11,7 @@
 import { useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { withBasePath } from "@/lib/base-path";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +25,7 @@ export default function LoginPage() {
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}${withBasePath("/auth/callback/")}`,
       },
     });
 

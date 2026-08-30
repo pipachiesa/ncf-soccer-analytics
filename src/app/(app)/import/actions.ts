@@ -1,14 +1,11 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-
-import { requireRole } from "@/lib/auth";
 import {
   EVENT_CSV_COLUMNS,
   type EventCsvRow,
   validateEventCsv,
 } from "@/lib/event-import";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 
 export type ImportResult =
   | {
@@ -38,7 +35,13 @@ function importError(context: string, message: string): ImportResult {
 export async function importEventRows(
   rows: EventCsvRow[],
 ): Promise<ImportResult> {
-  await requireRole(["importer", "admin"]);
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Your session has expired." };
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (!profile || !["importer", "admin"].includes(profile.role)) {
+    return { status: "error", message: "Importer or admin access is required." };
+  }
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return { status: "error", message: "The CSV contains no data rows." };
@@ -62,7 +65,6 @@ export async function importEventRows(
     return { status: "error", message: "The CSV headers do not match the template." };
   }
 
-  const supabase = await createClient();
   const fixture = rows[0];
 
   const { data: existingMatch, error: matchLookupError } = await supabase
@@ -201,8 +203,6 @@ export async function importEventRows(
   if (eventInsertError) {
     return importError("Unable to insert events", eventInsertError.message);
   }
-
-  revalidatePath("/");
 
   return {
     status: "success",

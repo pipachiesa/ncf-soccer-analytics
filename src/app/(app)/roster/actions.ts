@@ -1,9 +1,6 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-
-import { requireRole } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 
 export type PlayerActionState = {
   status: "idle" | "success" | "error";
@@ -28,7 +25,11 @@ export async function savePlayer(
   _previousState: PlayerActionState,
   formData: FormData,
 ): Promise<PlayerActionState> {
-  await requireRole(["importer", "admin"]);
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return errorState("Your session has expired.");
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (!profile || !["importer", "admin"].includes(profile.role)) return errorState("Importer or admin access is required.");
 
   const rawId = textField(formData, "player_id");
   const firstName = textField(formData, "first_name");
@@ -47,7 +48,6 @@ export async function savePlayer(
     return errorState("Invalid player record.");
   }
 
-  const supabase = await createClient();
   let duplicateQuery = supabase
     .from("players")
     .select("player_id")
@@ -71,8 +71,6 @@ export async function savePlayer(
 
   if (error) return errorState(error.message);
 
-  revalidatePath("/roster");
-  revalidatePath("/analytics");
   return {
     status: "success",
     message: playerId ? "Player updated." : "Player added.",
@@ -83,12 +81,15 @@ export async function deletePlayer(
   _previousState: PlayerActionState,
   formData: FormData,
 ): Promise<PlayerActionState> {
-  await requireRole(["importer", "admin"]);
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return errorState("Your session has expired.");
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (!profile || !["importer", "admin"].includes(profile.role)) return errorState("Importer or admin access is required.");
 
   const playerId = Number(textField(formData, "player_id"));
   if (!Number.isInteger(playerId) || playerId <= 0) return errorState("Invalid player record.");
 
-  const supabase = await createClient();
   const { error } = await supabase.from("players").delete().eq("player_id", playerId);
 
   if (error) {
@@ -99,7 +100,5 @@ export async function deletePlayer(
     );
   }
 
-  revalidatePath("/roster");
-  revalidatePath("/analytics");
   return { status: "success", message: "Player deleted." };
 }

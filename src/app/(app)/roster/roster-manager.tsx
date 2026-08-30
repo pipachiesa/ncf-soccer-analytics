@@ -17,6 +17,7 @@ export type RosterPlayer = {
 type RosterManagerProps = {
   players: RosterPlayer[];
   canEdit: boolean;
+  onChanged: () => void | Promise<void>;
 };
 
 const POSITIONS = [
@@ -30,7 +31,7 @@ function playerName(player: RosterPlayer) {
   return [player.first_name, player.last_name].filter(Boolean).join(" ") || "Unnamed player";
 }
 
-export function RosterManager({ players, canEdit }: RosterManagerProps) {
+export function RosterManager({ players, canEdit, onChanged }: RosterManagerProps) {
   const [editingPlayer, setEditingPlayer] = useState<RosterPlayer | null | undefined>(undefined);
   const [toast, setToast] = useState<PlayerActionState>(INITIAL_STATE);
 
@@ -97,7 +98,7 @@ export function RosterManager({ players, canEdit }: RosterManagerProps) {
                         >
                           <Pencil aria-hidden="true" className="size-3.5" />
                         </button>
-                        <DeleteButton player={player} onResult={setToast} />
+                        <DeleteButton player={player} onResult={setToast} onChanged={onChanged} />
                       </div>
                     ) : null}
                   </div>
@@ -124,6 +125,7 @@ export function RosterManager({ players, canEdit }: RosterManagerProps) {
           player={editingPlayer}
           onClose={() => setEditingPlayer(undefined)}
           onResult={setToast}
+          onChanged={onChanged}
         />
       ) : null}
 
@@ -136,18 +138,23 @@ function PlayerDialog({
   player,
   onClose,
   onResult,
+  onChanged,
 }: {
   player: RosterPlayer | null;
   onClose: () => void;
   onResult: (state: PlayerActionState) => void;
+  onChanged: () => void | Promise<void>;
 }) {
   const [state, formAction, isPending] = useActionState(savePlayer, INITIAL_STATE);
 
   useEffect(() => {
     if (state.status === "idle") return;
     onResult(state);
-    if (state.status === "success") onClose();
-  }, [state, onClose, onResult]);
+    if (state.status === "success") {
+      void onChanged();
+      onClose();
+    }
+  }, [state, onChanged, onClose, onResult]);
 
   return (
     <div
@@ -217,13 +224,16 @@ function Field({ label, name, defaultValue, type = "text" }: { label: string; na
   );
 }
 
-function DeleteButton({ player, onResult }: { player: RosterPlayer; onResult: (state: PlayerActionState) => void }) {
+function DeleteButton({ player, onResult, onChanged }: { player: RosterPlayer; onResult: (state: PlayerActionState) => void; onChanged: () => void | Promise<void> }) {
   const [state, dispatch, isPending] = useActionState(deletePlayer, INITIAL_STATE);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    if (state.status !== "idle") onResult(state);
-  }, [state, onResult]);
+    if (state.status !== "idle") {
+      onResult(state);
+      if (state.status === "success") void onChanged();
+    }
+  }, [state, onChanged, onResult]);
 
   function handleDelete() {
     if (!window.confirm(`Delete ${playerName(player)}? This cannot be undone.`)) return;
