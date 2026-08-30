@@ -1,30 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { withBasePath } from "@/lib/base-path";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AuthCallbackPage() {
   const [message, setMessage] = useState("Completing Google sign-in…");
+  const started = useRef(false);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
     async function completeSignIn() {
-      const code = new URLSearchParams(window.location.search).get("code");
-      if (!code) {
-        setMessage("The sign-in link is invalid. Returning to login…");
-        window.setTimeout(() => window.location.replace(withBasePath("/login/")), 1200);
-        return;
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const query = new URLSearchParams(window.location.search);
+      const oauthError = hash.get("error_description") ?? query.get("error_description");
+      if (oauthError) throw new Error(oauthError);
+
+      const supabase = createClient();
+      let { data: { session }, error } = await supabase.auth.getSession();
+      if (!session && !error) {
+        await new Promise((resolve) => window.setTimeout(resolve, 400));
+        ({ data: { session }, error } = await supabase.auth.getSession());
       }
-      const { error } = await createClient().auth.exchangeCodeForSession(code);
       if (error) {
-        setMessage(`Sign-in failed: ${error.message}`);
-        window.setTimeout(() => window.location.replace(withBasePath("/login/")), 1800);
-        return;
+        throw error;
       }
+      if (!session) throw new Error("Google did not return a session. Please try again.");
       window.location.replace(withBasePath("/"));
     }
-    void completeSignIn();
+    void completeSignIn().catch((error) => {
+      setMessage(`Sign-in failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      window.setTimeout(() => window.location.replace(withBasePath("/login/")), 2200);
+    });
   }, []);
 
   return (
