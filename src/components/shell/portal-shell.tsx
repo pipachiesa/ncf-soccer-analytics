@@ -35,7 +35,7 @@ const SECTION_LABELS = [
   { prefix: "/analytics", label: "Analytics" },
   { prefix: "/players", label: "Players" },
   { prefix: "/import", label: "Import" },
-  { prefix: "/admin", label: "Admin" },
+  { prefix: "/admin", label: "Users" },
 ];
 
 function pathIsActive(pathname: string, href: string) {
@@ -65,7 +65,6 @@ export function PortalShell({
   const sectionLabel =
     SECTION_LABELS.find(({ prefix }) => pathname.startsWith(prefix))?.label ??
     "Overview";
-  const clubIsActive = pathname.startsWith("/import") || pathname.startsWith("/admin");
   const canImport = profile.role === "importer" || profile.role === "admin";
 
   return (
@@ -115,28 +114,8 @@ export function PortalShell({
                 );
               })}
 
-              <details className="group relative flex items-stretch">
-                <summary
-                  className={`relative flex cursor-pointer list-none items-center gap-1 px-3 text-sm font-semibold transition-colors hover:bg-elevated hover:text-foreground [&::-webkit-details-marker]:hidden ${
-                    clubIsActive ? "text-foreground" : "text-muted"
-                  }`}
-                >
-                  Club
-                  <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
-                  {clubIsActive ? (
-                    <span className="absolute inset-x-3 bottom-0 h-0.5 bg-accent" />
-                  ) : null}
-                </summary>
-                <div className="absolute top-[calc(100%+1px)] right-0 z-50 min-w-44 rounded-b-md border border-border bg-panel p-1.5 shadow-xl">
-                  {canImport ? <DropdownLink href="/import">Import</DropdownLink> : null}
-                  {profile.role === "admin" ? (
-                    <DropdownLink href="/admin">Admin</DropdownLink>
-                  ) : null}
-                  {!canImport ? (
-                    <p className="px-3 py-2 text-xs text-muted">No management access</p>
-                  ) : null}
-                </div>
-              </details>
+              {canImport ? <PrimaryManagementLink href="/import" label="Import" pathname={pathname} /> : null}
+              {profile.role === "admin" ? <PrimaryManagementLink href="/admin" label="Users" pathname={pathname} /> : null}
             </div>
           </nav>
 
@@ -216,13 +195,15 @@ export function PortalShell({
   );
 }
 
-function DropdownLink({ href, children }: { href: string; children: ReactNode }) {
+function PrimaryManagementLink({ href, label, pathname }: { href: string; label: string; pathname: string }) {
+  const active = pathIsActive(pathname, href);
   return (
     <Link
       href={href}
-      className="block rounded px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-elevated hover:text-accent"
+      className={`relative flex items-center px-3 text-sm font-semibold transition-colors hover:bg-elevated hover:text-foreground ${active ? "text-foreground" : "text-muted"}`}
     >
-      {children}
+      {label}
+      {active ? <span className="absolute inset-x-3 bottom-0 h-0.5 bg-accent" /> : null}
     </Link>
   );
 }

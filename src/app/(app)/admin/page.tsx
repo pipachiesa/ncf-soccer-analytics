@@ -1,73 +1,52 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-import { RoleForm } from "./role-form";
+import { ProfileTable, type AdminProfile } from "./profile-table";
 
 export default async function AdminPage() {
-  await requireRole(["admin"]);
+  const currentProfile = await requireRole(["admin"]);
 
   const supabase = await createClient();
   const { data: profiles, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role")
+    .select("id, email, full_name, role, created_at")
     .order("email", { ascending: true });
+  const roleCounts = (profiles ?? []).reduce(
+    (counts, profile) => {
+      const role = profile.role as "admin" | "importer" | "viewer";
+      if (role in counts) counts[role] += 1;
+      return counts;
+    },
+    { admin: 0, importer: 0, viewer: 0 },
+  );
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
-      <div className="mb-8">
-        <p className="text-sm font-medium text-accent">Administration</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-          User roles
-        </h1>
+    <div className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-5 lg:px-6">
+      <div className="mb-5 flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">User administration</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">Users & permissions</h1>
+          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-muted">
+            Importers can upload CSVs and edit the roster; viewers are read-only.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {(["admin", "importer", "viewer"] as const).map((role) => (
+            <div className="min-w-20 rounded-sm border border-border bg-panel px-3 py-2 text-center" key={role}>
+              <p className="text-lg font-black tabular-nums text-foreground">{roleCounts[role]}</p>
+              <p className="text-[8px] font-black uppercase tracking-wider text-muted">{role}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-elevated">
-        {error ? (
-          <p className="p-6 text-sm text-pass-fail">
-            Unable to load profiles: {error.message}
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="border-b border-border bg-elevated text-sm text-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Email</th>
-                  <th className="px-5 py-3 font-medium">Name</th>
-                  <th className="px-5 py-3 text-right font-medium">Role</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {profiles?.map((profile) => (
-                  <tr key={profile.id} className="bg-panel">
-                    <td className="px-5 py-4 text-sm text-foreground">
-                      {profile.email ?? "—"}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-foreground">
-                      {profile.full_name ?? "—"}
-                    </td>
-                    <td className="px-5 py-4">
-                      <RoleForm
-                        profileId={profile.id}
-                        currentRole={profile.role}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {!profiles?.length ? (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="bg-panel px-5 py-10 text-center text-sm text-muted"
-                    >
-                      No profiles found.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {error ? (
+        <div className="rounded-md border border-pass-fail bg-panel px-4 py-3 text-sm text-pass-fail">
+          Unable to load profiles: {error.message}
+        </div>
+      ) : (
+        <ProfileTable currentProfileId={currentProfile.id} profiles={(profiles ?? []) as AdminProfile[]} />
+      )}
     </div>
   );
 }

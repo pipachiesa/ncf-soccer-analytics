@@ -18,10 +18,11 @@ export async function updateProfileRole(
   _previousState: UpdateRoleState,
   formData: FormData,
 ): Promise<UpdateRoleState> {
-  await requireRole(["admin"]);
+  const currentProfile = await requireRole(["admin"]);
 
   const profileId = formData.get("profileId");
   const role = formData.get("role");
+  const confirmedSelfDemotion = formData.get("confirmedSelfDemotion") === "yes";
 
   if (
     typeof profileId !== "string" ||
@@ -29,6 +30,13 @@ export async function updateProfileRole(
     !VALID_ROLES.includes(role as ProfileRole)
   ) {
     return { status: "error", message: "Invalid role update." };
+  }
+
+  if (profileId === currentProfile.id && role !== "admin" && !confirmedSelfDemotion) {
+    return {
+      status: "error",
+      message: "Confirm before removing your own admin access.",
+    };
   }
 
   const supabase = await createClient();
@@ -44,5 +52,5 @@ export async function updateProfileRole(
   revalidatePath("/admin");
   revalidatePath("/", "layout");
 
-  return { status: "success", message: "Role updated." };
+  return { status: "success", message: `Role updated to ${role}.` };
 }

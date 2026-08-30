@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { type FormEvent, useActionState, useRef, useState } from "react";
 
 import {
   updateProfileRole,
@@ -15,24 +15,46 @@ const INITIAL_STATE: UpdateRoleState = {
 export function RoleForm({
   profileId,
   currentRole,
+  isSelf,
 }: {
   profileId: string;
   currentRole: string;
+  isSelf: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(
     updateProfileRole,
     INITIAL_STATE,
   );
+  const [selectedRole, setSelectedRole] = useState(currentRole);
+  const confirmationRef = useRef<HTMLInputElement>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (!isSelf || currentRole !== "admin" || selectedRole === "admin") return;
+
+    const confirmed = window.confirm(
+      "Remove your own admin access? You may not be able to return to this page.",
+    );
+    if (!confirmed) {
+      event.preventDefault();
+      return;
+    }
+    if (confirmationRef.current) confirmationRef.current.value = "yes";
+  }
 
   return (
     <>
-      <form action={formAction} className="flex items-center justify-end gap-2">
+      <form action={formAction} className="flex items-center justify-end gap-2" onSubmit={handleSubmit}>
         <input type="hidden" name="profileId" value={profileId} />
+        <input ref={confirmationRef} type="hidden" name="confirmedSelfDemotion" value="no" />
         <select
           name="role"
-          defaultValue={currentRole}
-          aria-label="User role"
-          className="rounded-md border border-border bg-panel px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+          aria-label={isSelf ? "Your role" : "User role"}
+          className="h-9 rounded-sm border border-border bg-elevated px-3 text-xs font-bold capitalize text-foreground outline-none focus:border-accent"
+          onChange={(event) => {
+            setSelectedRole(event.target.value);
+            if (confirmationRef.current) confirmationRef.current.value = "no";
+          }}
+          value={selectedRole}
         >
           <option value="viewer">Viewer</option>
           <option value="importer">Importer</option>
@@ -40,8 +62,8 @@ export function RoleForm({
         </select>
         <button
           type="submit"
-          disabled={isPending}
-          className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isPending || selectedRole === currentRole}
+          className="h-9 rounded-sm bg-accent px-3 text-xs font-black text-[var(--bg)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isPending ? "Saving…" : "Save"}
         </button>
@@ -49,9 +71,9 @@ export function RoleForm({
       {state.status !== "idle" ? (
         <div
           role="status"
-          className={`fixed right-6 bottom-6 z-50 rounded-md border px-4 py-3 text-sm shadow-lg ${
+          className={`fixed right-5 bottom-5 z-50 rounded-md border px-4 py-3 text-sm font-semibold shadow-xl ${
             state.status === "success"
-              ? "border-accent bg-elevated text-foreground"
+              ? "border-accent bg-panel text-foreground"
               : "border-pass-fail bg-panel text-pass-fail"
           }`}
         >
