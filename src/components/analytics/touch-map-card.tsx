@@ -6,7 +6,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { Pitch, PITCH_LENGTH, PITCH_WIDTH } from "@/components/viz";
 import type { AnalyticsEvent } from "@/lib/analytics";
 
-type HeatmapCardProps = {
+type TouchMapCardProps = {
   events: AnalyticsEvent[];
   loading: boolean;
   large?: boolean;
@@ -82,7 +82,7 @@ function gridCellOpacity(count: number, maximum: number) {
   return 0.12 + Math.pow(count / maximum, 0.7) * 0.65;
 }
 
-export function HeatmapCard({ events, loading, large = false, title = "Heatmap" }: HeatmapCardProps) {
+export function TouchMapCard({ events, loading, large = false, title = "Touch Map" }: TouchMapCardProps) {
   const [filter, setFilter] = useState<EventFilter>("touches");
   const [mode, setMode] = useState<ViewMode>("intensity");
 
@@ -143,7 +143,7 @@ export function HeatmapCard({ events, loading, large = false, title = "Heatmap" 
           </div>
 
           {mode === "intensity" ? (
-            <div aria-label="Heatmap event type" className="flex flex-wrap gap-1">
+            <div aria-label="Touch map event type" className="flex flex-wrap gap-1">
               {FILTER_OPTIONS.map((option) => (
                 <ModeButton active={filter === option.value} key={option.value} onClick={() => setFilter(option.value)}>
                   {option.label}
@@ -168,7 +168,7 @@ export function HeatmapCard({ events, loading, large = false, title = "Heatmap" 
         <div className="relative rounded-md border border-border bg-[var(--pitch-bg)] p-2 sm:p-3">
           <Pitch className={`mx-auto block h-auto w-full ${large ? "max-w-5xl" : "max-w-2xl"} ${loading ? "animate-pulse opacity-50" : ""}`}>
             {mode === "intensity" ? (
-              <HeatCells cells={cells} maximum={maximumCell} />
+              <TouchDensityCells cells={cells} maximum={maximumCell} />
             ) : (
               <AttackZones cells={zones} total={attackingEvents.length} />
             )}
@@ -196,18 +196,19 @@ export function HeatmapCard({ events, loading, large = false, title = "Heatmap" 
   );
 }
 
-function HeatCells({ cells, maximum }: { cells: number[]; maximum: number }) {
+
+function TouchDensityCells({ cells, maximum }: { cells: number[]; maximum: number }) {
   const cellWidth = PITCH_LENGTH / GRID_COLUMNS;
   const cellHeight = PITCH_WIDTH / GRID_ROWS;
 
   return (
     <g aria-label="Event intensity grid">
       <defs>
-        <filter height="150%" id="heat-blur" width="150%" x="-25%" y="-25%">
+        <filter height="150%" id="touch-density-blur" width="150%" x="-25%" y="-25%">
           <feGaussianBlur stdDeviation="1.35" />
         </filter>
       </defs>
-      <g filter="url(#heat-blur)">
+      <g filter="url(#touch-density-blur)">
       {cells.map((count, index) => {
         const column = index % GRID_COLUMNS;
         const row = Math.floor(index / GRID_COLUMNS);

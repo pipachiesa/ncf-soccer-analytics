@@ -3,6 +3,8 @@
 import { UsersRound } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 
+import { useAuth } from "@/components/auth/auth-provider";
+import { TouchMapCard } from "@/components/analytics/touch-map-card";
 import { useAnalyticsData } from "@/hooks/use-analytics-data";
 import {
   calculateAnalyticsKpis,
@@ -11,6 +13,8 @@ import {
 
 import { PlayerMatchDashboard } from "./player-match-dashboard";
 import { GoalkeeperAnalysis } from "./goalkeeper-analysis";
+import { PlayerPhotoUploader } from "./player-photo-uploader";
+import { PlayerStatsTable } from "./player-stats-table";
 
 export type PlayerHubPlayer = {
   player_id: number;
@@ -18,6 +22,7 @@ export type PlayerHubPlayer = {
   last_name: string | null;
   shirt_number: number | null;
   position: string | null;
+  image_url: string | null;
 };
 
 export type PlayerHubMatch = {
@@ -31,6 +36,7 @@ type PlayerHubProps = {
   players: PlayerHubPlayer[];
   matches: PlayerHubMatch[];
   setupError?: string | null;
+  onPlayersChanged: () => void | Promise<void>;
 };
 
 function playerName(player?: PlayerHubPlayer) {
@@ -44,7 +50,9 @@ function formatMatch(match: PlayerHubMatch) {
   return `${match.opponent} · ${date} · ${match.home_away === "home" ? "H" : "A"}`;
 }
 
-export function PlayerHub({ players, matches, setupError }: PlayerHubProps) {
+export function PlayerHub({ players, matches, setupError, onPlayersChanged }: PlayerHubProps) {
+  const { profile } = useAuth();
+  const canEdit = profile.role === "admin" || profile.role === "importer";
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | undefined>(players[0]?.player_id);
   const [matchId, setMatchId] = useState<"all" | number>("all");
   const selectedPlayer = players.find((player) => player.player_id === selectedPlayerId);
@@ -117,20 +125,27 @@ export function PlayerHub({ players, matches, setupError }: PlayerHubProps) {
 
       <section className="overflow-hidden rounded-md border border-border bg-panel">
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr]">
-          <div className="grid min-h-44 place-items-center border-b border-border bg-elevated p-5 lg:border-r lg:border-b-0">
-            <div className="text-center">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted">Shirt number</p>
-              <p className="mt-1 text-6xl font-black leading-none text-accent">{selectedPlayer?.shirt_number ?? "—"}</p>
-              <span className="mt-3 inline-flex rounded-full border border-accent px-3 py-1 text-[10px] font-black uppercase tracking-wider text-accent">
-                {effectivePosition}
-              </span>
-            </div>
+          <div className="grid min-h-52 place-items-center border-b border-border bg-elevated p-5 lg:border-r lg:border-b-0">
+            {selectedPlayer ? (
+              <PlayerPhotoUploader
+                canEdit={canEdit}
+                imageUrl={selectedPlayer.image_url}
+                onUploaded={onPlayersChanged}
+                playerId={selectedPlayer.player_id}
+                playerName={playerName(selectedPlayer)}
+              />
+            ) : null}
           </div>
           <div className="p-4 sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-accent">Player Hub</p>
-                <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">{playerName(selectedPlayer)}</h1>
+                <h1 className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+                  <span>{playerName(selectedPlayer)}</span>
+                  <span className="text-base font-black text-accent sm:text-lg">
+                    #{selectedPlayer?.shirt_number ?? "—"} · {effectivePosition}
+                  </span>
+                </h1>
                 <p className="mt-1 text-xs font-semibold text-muted">{scopeLabel} · Totals</p>
               </div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
@@ -168,7 +183,12 @@ export function PlayerHub({ players, matches, setupError }: PlayerHubProps) {
       </section>
 
       {isGoalkeeper ? (
-        <GoalkeeperAnalysis events={events} loading={loading} />
+        <>
+          <GoalkeeperAnalysis events={events} loading={loading} />
+          <section className="mt-4">
+            <TouchMapCard events={events} large loading={loading} title="Goalkeeper Touch Map" />
+          </section>
+        </>
       ) : (
         <PlayerMatchDashboard
           events={events}
@@ -176,6 +196,13 @@ export function PlayerHub({ players, matches, setupError }: PlayerHubProps) {
           teamEvents={teamEvents}
         />
       )}
+      <PlayerStatsTable
+        events={events}
+        goalkeeper={isGoalkeeper}
+        loading={loading || teamLoading}
+        playerId={selectedPlayerId}
+        teamEvents={teamEvents}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { Maximize2, X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import { HeatmapCard } from "@/components/analytics/heatmap-card";
+import { TouchMapCard } from "@/components/analytics/touch-map-card";
 import {
   mapPitchCoordinates,
   PassArrow,
@@ -46,7 +46,7 @@ export function PlayerMatchDashboard({
         <ShotsPanel events={events} loading={loading} />
       </section>
       <section className="mt-4">
-        <HeatmapCard events={events} large loading={loading} title="Player Heatmap" />
+        <TouchMapCard events={events} large loading={loading} title="Player Touch Map" />
       </section>
       <article className="mt-4 overflow-hidden rounded-md border border-border bg-panel">
         <PanelTitle number="06" title="PLAYER RADAR" />

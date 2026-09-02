@@ -15,8 +15,9 @@ import {
 import { ShotMapCard } from "@/components/analytics/shot-map-card";
 import { PassMapsCard } from "@/components/analytics/pass-maps-card";
 import { PassingNetworkCard } from "@/components/analytics/passing-network-card";
-import { HeatmapCard } from "@/components/analytics/heatmap-card";
+import { TouchMapCard } from "@/components/analytics/touch-map-card";
 import { MatchSummary } from "@/components/analytics/match-summary";
+import { GoalkeeperMapCard } from "@/components/analytics/goalkeeper-map-card";
 import { useAnalyticsData } from "@/hooks/use-analytics-data";
 import { calculateAnalyticsKpis, per90 } from "@/lib/analytics";
 
@@ -80,6 +81,7 @@ export function AnalyticsHub({
   const stats = useMemo(() => calculateAnalyticsKpis(events), [events]);
   const activeMatch = matches.find((match) => match.match_id === activeMatchId);
   const activePlayer = players.find((player) => player.player_id === selectedPlayerId);
+  const playerIsGoalkeeper = scopeType === "player" && activePlayer?.position?.toUpperCase() === "GK";
   const per90Mode = displayMode === "per90";
 
   const countValue = (value: number) => (per90Mode ? per90(value, minutesPlayed) : value);
@@ -254,7 +256,11 @@ export function AnalyticsHub({
       </section>
 
       <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ShotMapCard matchId={activeMatchId} playerId={playerId} />
+        {playerIsGoalkeeper ? (
+          <GoalkeeperMapCard events={events} loading={loading} />
+        ) : (
+          <ShotMapCard matchId={activeMatchId} playerId={playerId} />
+        )}
         <PassingNetworkCard
           matchId={activeMatchId}
           players={players}
@@ -269,7 +275,7 @@ export function AnalyticsHub({
             selectedShirtNumber={activePlayer?.shirt_number}
           />
         </div>
-        <div className="lg:col-span-2"><HeatmapCard events={events} loading={loading} /></div>
+        <div className="lg:col-span-2"><TouchMapCard events={events} loading={loading} /></div>
       </section>
     </div>
   );
